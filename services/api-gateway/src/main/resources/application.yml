@@ -1,0 +1,81 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # ====================================================================
+            # Route : Auth Service - Authentification (Register, Login)
+            # ====================================================================
+            - id: auth-service-auth
+              uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/auth/**
+
+            # ====================================================================
+            # Route : Auth Service - Profil utilisateur & vérification JWT
+            # ====================================================================
+            - id: auth-service-users
+              uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/users/**
+
+            # ====================================================================
+            # Routes préparées pour les futurs services de la plateforme
+            # Par défaut, ces routes n'émettent aucun appel réseau externe
+            # et renvoient immédiatement un statut 503 contrôlé via le contrôleur
+            # local de fallback. Dès qu'un service est déployé, il suffit de
+            # définir la variable d'environnement correspondante (ex: PRODUCT_SERVICE_URL).
+            # ====================================================================
+            # ====================================================================
+            # Route : Customer Service - Gestion de la relation client
+            # ====================================================================
+            - id: customer-service
+              uri: ${CUSTOMER_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/customers/**
+
+            # ====================================================================
+            # Route : Product Service - Gestion du catalogue
+            # ====================================================================
+            - id: product-service
+              uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/products/**
+
+            - id: sales-service
+              uri: ${SALES_SERVICE_URL:forward:/fallback/service-unavailable}
+              predicates:
+                - Path=/api/sales/**
+
+            - id: analytics-service
+              uri: ${ANALYTICS_SERVICE_URL:forward:/fallback/service-unavailable}
+              predicates:
+                - Path=/api/analytics/**
+
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: "*"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders: "*"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
