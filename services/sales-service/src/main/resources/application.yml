@@ -1,0 +1,48 @@
+server:
+  port: ${PORT:8084}
+
+spring:
+  application:
+    name: sales-service
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:sales_db}
+    username: ${POSTGRES_USER:ai_platform}
+    password: "${POSTGRES_PASSWORD:0000}"
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+services:
+  product-service:
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+    connect-timeout-ms: ${PRODUCT_SERVICE_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${PRODUCT_SERVICE_READ_TIMEOUT_MS:3000}
+  customer-service:
+    url: ${CUSTOMER_SERVICE_URL:http://localhost:8083}
+    connect-timeout-ms: ${CUSTOMER_SERVICE_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${CUSTOMER_SERVICE_READ_TIMEOUT_MS:3000}

@@ -49,8 +49,11 @@ spring:
               predicates:
                 - Path=/api/products/**
 
+            # ====================================================================
+            # Route : Sales Service - Gestion des ventes
+            # ====================================================================
             - id: sales-service
-              uri: ${SALES_SERVICE_URL:forward:/fallback/service-unavailable}
+              uri: ${SALES_SERVICE_URL:http://localhost:8084}
               predicates:
                 - Path=/api/sales/**
 
