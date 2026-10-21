@@ -37,6 +37,9 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+jwt:
+  secret: ${JWT_SECRET}
+
 services:
   product-service:
     url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
