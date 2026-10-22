@@ -30,7 +30,7 @@ public class SaleController {
     }
 
     @PostMapping
-    @Operation(summary = "Créer une nouvelle vente", description = "Enregistre une nouvelle commande client avec recalcul des montants côté serveur")
+    @Operation(summary = "Créer une nouvelle vente", description = "Enregistre une nouvelle commande client avec recalcul des montants côté serveur et réservation atomique de stock")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Vente créée avec succès"),
             @ApiResponse(responseCode = "400", description = "Données de requête invalides (ex: quantité nulle ou négative, corps vide)"),
@@ -39,8 +39,18 @@ public class SaleController {
             @ApiResponse(responseCode = "502", description = "Erreur de réponse ou indisponibilité d'un service distant"),
             @ApiResponse(responseCode = "503", description = "Service distant injoignable ou timeout")
     })
-    public ResponseEntity<SaleResponse> createSale(@Valid @RequestBody CreateSaleRequest request) {
-        SaleResponse created = salesService.createSale(request);
+    public ResponseEntity<SaleResponse> createSale(
+            @Parameter(description = "Clé d'idempotence optionnelle (équivalente à la référence)", example = "CMD-20261022-001")
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody CreateSaleRequest request) {
+
+        CreateSaleRequest effectiveRequest = request;
+        if ((request.reference() == null || request.reference().isBlank())
+                && idempotencyKey != null && !idempotencyKey.isBlank()) {
+            effectiveRequest = new CreateSaleRequest(request.customerId(), idempotencyKey.trim(), request.items());
+        }
+
+        SaleResponse created = salesService.createSale(effectiveRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

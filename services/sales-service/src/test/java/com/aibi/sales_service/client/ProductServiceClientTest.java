@@ -1,6 +1,7 @@
 package com.aibi.sales_service.client;
 
-import com.aibi.sales_service.client.dto.ProductDto;
+import com.aibi.sales_service.client.dto.*;
+import com.aibi.sales_service.exception.InsufficientStockException;
 import com.aibi.sales_service.exception.ProductNotFoundException;
 import com.aibi.sales_service.exception.RemoteServiceUnavailableException;
 import org.junit.jupiter.api.BeforeEach;
@@ -110,5 +111,66 @@ class ProductServiceClientTest {
     void getProductById_NullId() {
         assertThatThrownBy(() -> client.getProductById(null))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("reserveStock : Réservation réussie 201 Created -> StockReservationResponse")
+    void reserveStock_Success() {
+        String json = """
+                {
+                    "reservationId": "RES-001",
+                    "status": "RESERVED",
+                    "items": [
+                        { "productId": 1, "quantity": 2 }
+                    ]
+                }
+                """;
+
+        mockServer.expect(requestTo("http://localhost:8082/api/products/reservations"))
+                .andRespond(withStatus(HttpStatus.CREATED).contentType(MediaType.APPLICATION_JSON).body(json));
+
+        StockReservationRequest request = new StockReservationRequest("RES-001",
+                java.util.List.of(new StockReservationItemRequest(1L, 2)));
+
+        StockReservationResponse response = client.reserveStock(request);
+        assertThat(response).isNotNull();
+        assertThat(response.reservationId()).isEqualTo("RES-001");
+        assertThat(response.status()).isEqualTo("RESERVED");
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("reserveStock : 409 Conflict reçu de Product Service -> InsufficientStockException")
+    void reserveStock_InsufficientStock_409() {
+        mockServer.expect(requestTo("http://localhost:8082/api/products/reservations"))
+                .andRespond(withStatus(HttpStatus.CONFLICT).body("{\"message\":\"Stock insuffisant\"}"));
+
+        StockReservationRequest request = new StockReservationRequest("RES-FAIL",
+                java.util.List.of(new StockReservationItemRequest(1L, 100)));
+
+        assertThatThrownBy(() -> client.reserveStock(request))
+                .isInstanceOf(InsufficientStockException.class)
+                .hasMessageContaining("Stock insuffisant");
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("releaseStock : Libération réussie 200 OK -> StockReleaseResponse")
+    void releaseStock_Success() {
+        String json = """
+                {
+                    "reservationId": "RES-001",
+                    "status": "RELEASED",
+                    "message": "Stock libéré avec succès."
+                }
+                """;
+
+        mockServer.expect(requestTo("http://localhost:8082/api/products/reservations/RES-001/release"))
+                .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
+
+        StockReleaseResponse response = client.releaseStock("RES-001");
+        assertThat(response).isNotNull();
+        assertThat(response.status()).isEqualTo("RELEASED");
+        mockServer.verify();
     }
 }

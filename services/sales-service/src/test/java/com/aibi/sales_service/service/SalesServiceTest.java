@@ -462,4 +462,67 @@ class SalesServiceTest {
         assertThatThrownBy(() -> salesService.updateSaleStatus(999L, new UpdateSaleStatusRequest(SaleStatus.CONFIRMED)))
                 .isInstanceOf(SaleNotFoundException.class);
     }
+
+    @Test
+    @DisplayName("createSale : Échec de la réservation atomique distante -> InsufficientStockException et pas d'enregistrement")
+    void createSale_ReservationFailsRemotely() {
+        when(customerServiceClient.getCustomerById(1L)).thenReturn(mockCustomer);
+        when(productServiceClient.getProductById(10L)).thenReturn(mockProduct1);
+        when(productServiceClient.reserveStock(any())).thenThrow(new InsufficientStockException("Stock insuffisant"));
+
+        CreateSaleRequest request = new CreateSaleRequest(
+                1L,
+                "REF-FAIL-RES",
+                List.of(new SaleItemRequest(10L, 2))
+        );
+
+        assertThatThrownBy(() -> salesService.createSale(request))
+                .isInstanceOf(InsufficientStockException.class);
+
+        verify(saleRepository, never()).save(any());
+        verify(productServiceClient, never()).releaseStock(any());
+    }
+
+    @Test
+    @DisplayName("createSale : Échec inattendu lors de la sauvegarde locale -> Compensation releaseStock déclenchée")
+    void createSale_CompensatingReleaseTriggeredOnSaveFailure() {
+        when(customerServiceClient.getCustomerById(1L)).thenReturn(mockCustomer);
+        when(productServiceClient.getProductById(10L)).thenReturn(mockProduct1);
+        when(productServiceClient.reserveStock(any())).thenReturn(null);
+        when(saleRepository.save(any(Sale.class))).thenThrow(new RuntimeException("Erreur base locale"));
+
+        CreateSaleRequest request = new CreateSaleRequest(
+                1L,
+                "REF-COMP-FAIL",
+                List.of(new SaleItemRequest(10L, 2))
+        );
+
+        assertThatThrownBy(() -> salesService.createSale(request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Erreur base locale");
+
+        // Vérification que la compensation a bien été appelée pour annuler la réservation
+        verify(productServiceClient).releaseStock("REF-COMP-FAIL");
+    }
+
+    @Test
+    @DisplayName("updateSaleStatus : Transition vers CANCELLED -> Libération compensatoire de stock déclenchée")
+    void updateSaleStatus_ToCancelled_ReleasesStock() {
+        Sale sale = Sale.builder()
+                .id(1L)
+                .reference("SAL-20261022-CANCEL")
+                .status(SaleStatus.PENDING)
+                .customerId(1L)
+                .totalAmount(new BigDecimal("100.00"))
+                .build();
+        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.save(any(Sale.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SaleResponse response = salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.CANCELLED));
+
+        assertThat(response.status()).isEqualTo(SaleStatus.CANCELLED);
+        // Vérifie l'appel au Product Service pour libérer le stock réservé
+        verify(productServiceClient).releaseStock("SAL-20261022-CANCEL");
+        verify(saleRepository).save(sale);
+    }
 }
