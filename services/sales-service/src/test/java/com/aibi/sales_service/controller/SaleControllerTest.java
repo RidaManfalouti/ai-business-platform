@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -479,5 +480,48 @@ class SaleControllerTest {
                         .content(payload))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("POST /api/sales : Utilisation du header Idempotency-Key -> référence correctement affectée et pas de doublon")
+    void shouldSupportIdempotencyKeyHeader() throws Exception {
+        String key = "IDEMP-KEY-" + randomSuffix();
+
+        when(customerServiceClient.getCustomerById(eq(1L)))
+                .thenReturn(new CustomerDto(1L, "Bob", "Client", "bob@example.com", "0123456789", "Acme"));
+        when(productServiceClient.getProductById(eq(10L)))
+                .thenReturn(new ProductDto(10L, "Souris", "Souris USB", new BigDecimal("15.00"), 50, "Accessoires"));
+        when(productServiceClient.reserveStock(any()))
+                .thenReturn(null);
+
+        String payload = """
+                {
+                    "customerId": 1,
+                    "items": [
+                        {
+                            "productId": 10,
+                            "quantity": 2
+                        }
+                    ]
+                }
+                """;
+
+        // Première requête avec en-tête Idempotency-Key
+        mockMvc.perform(post("/api/sales")
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.reference").value(key))
+                .andExpect(jsonPath("$.totalAmount").value(30.00));
+
+        // Répétition avec la même clé -> 409 CONFLICT (ne crée pas de vente en double)
+        mockMvc.perform(post("/api/sales")
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("CONFLICT"))
+                .andExpect(jsonPath("$.message", containsString("existe déjà")));
     }
 }

@@ -4,6 +4,8 @@ import com.aibi.sales_service.client.CustomerServiceClient;
 import com.aibi.sales_service.client.ProductServiceClient;
 import com.aibi.sales_service.client.dto.CustomerDto;
 import com.aibi.sales_service.client.dto.ProductDto;
+import com.aibi.sales_service.client.dto.StockReservationItemRequest;
+import com.aibi.sales_service.client.dto.StockReservationRequest;
 import com.aibi.sales_service.dto.*;
 import com.aibi.sales_service.entity.Sale;
 import com.aibi.sales_service.entity.SaleItem;
@@ -46,13 +48,16 @@ public class SalesService {
     }
 
     /**
-     * Crée une nouvelle vente.
+     * Crée une nouvelle vente avec réservation atomique de stock.
      *
-     * IMPORTANT (Gestion du stock et concurrence) :
-     * Le Product Service actuel ne fournissant pas d'endpoint atomique de décrémentation
-     * ou de réservation de stock, la vérification ci-dessous est une vérification consultative (read-only).
-     * Elle ne garantit pas l'absence d'accès concurrents sur le stock du catalogue distant.
-     * Pour une atomicité inter-services, Product Service devra implémenter une opération de réservation/décrémentation dédiée.
+     * IMPORTANT (Gestion de la cohérence distribuée et Saga compensatoire) :
+     * 1. La vérification consultative read-only est remplacée par une réservation de stock atomique
+     *    côté Product Service (via un décrément conditionnel en base).
+     * 2. Si la création de la vente échoue après la réservation (ex: erreur DB, timeout), une action
+     *    compensatoire 'releaseStock' est immédiatement déclenchée pour restituer le stock réservé.
+     * 3. Fenêtres de défaillance résiduelles : si la compensation échoue en raison d'une panne réseau majeure,
+     *    une réconciliation idempotente asynchrone est requise. L'atomicité n'est donc pas une transaction 2PC,
+     *    mais un pattern Saga à cohérence à terme (eventual consistency).
      *
      * Idempotence & anti-doublon :
      * Si le client fournit une référence de commande (clé d'idempotence), l'unicité est vérifiée
@@ -83,13 +88,13 @@ public class SalesService {
             reference = generateUniqueReference();
         }
 
-        // 3. Vérification de l'existence du client distant (Customer Service)
+        // 3. Vérification de l'existence du client distant (Customer Service) avant de toucher au stock
         CustomerDto customer = customerServiceClient.getCustomerById(request.customerId());
         if (customer != null) {
             log.debug("Client vérifié : {} {} (ID: {})", customer.firstName(), customer.lastName(), customer.id());
         }
 
-        // 4. Construction de l'entité Sale
+        // 4. Construction de l'entité Sale et calcul strict côté serveur des prix
         Sale sale = Sale.builder()
                 .reference(reference)
                 .customerId(request.customerId())
@@ -98,15 +103,15 @@ public class SalesService {
                 .build();
 
         BigDecimal runningTotal = BigDecimal.ZERO;
+        List<StockReservationItemRequest> reservationItems = new ArrayList<>();
 
-        // 5. Récupération des informations produits et calcul strict côté serveur
         for (Map.Entry<Long, Integer> entry : consolidatedItems.entrySet()) {
             Long productId = entry.getKey();
             Integer quantity = entry.getValue();
 
             ProductDto product = productServiceClient.getProductById(productId);
 
-            // Vérification consultative du stock disponible
+            // Vérification consultative préliminaire rapide (fail-fast)
             if (product.stockQuantity() != null && product.stockQuantity() < quantity) {
                 throw new InsufficientStockException(
                         "Stock insuffisant pour le produit '" + product.name() + "' (ID: " + productId
@@ -127,10 +132,17 @@ public class SalesService {
 
             sale.addItem(item);
             runningTotal = runningTotal.add(lineTotal);
+            reservationItems.add(new StockReservationItemRequest(productId, quantity));
         }
 
         sale.setTotalAmount(runningTotal.setScale(2, RoundingMode.HALF_UP));
 
+        // 5. Réservation atomique du stock dans Product Service (décrément conditionnel en base)
+        StockReservationRequest reservationRequest = new StockReservationRequest(reference, reservationItems);
+        productServiceClient.reserveStock(reservationRequest);
+        boolean stockReserved = true;
+
+        // 6. Sauvegarde locale avec compensation en cas d'échec
         try {
             Sale savedSale = saleRepository.save(sale);
             log.info("Vente créée avec succès. ID: {}, Réf: {}, Total: {}", savedSale.getId(), savedSale.getReference(), savedSale.getTotalAmount());
@@ -138,6 +150,16 @@ public class SalesService {
         } catch (DataIntegrityViolationException ex) {
             log.warn("Violation de contrainte d'intégrité lors de la sauvegarde de la vente (référence en doublon possible) : {}", ex.getMessage());
             throw new DuplicateSaleReferenceException("Une vente avec la référence '" + reference + "' existe déjà.");
+        } catch (Exception ex) {
+            log.error("Échec persistance vente {} : {}. Exécution de la compensation releaseStock.", reference, ex.getMessage());
+            if (stockReserved) {
+                try {
+                    productServiceClient.releaseStock(reference);
+                } catch (Exception compEx) {
+                    log.error("CRITIQUE : Échec compensation pour réservation {} : {}", reference, compEx.getMessage());
+                }
+            }
+            throw ex;
         }
     }
 
@@ -178,6 +200,12 @@ public class SalesService {
             throw new InvalidSaleStatusTransitionException(
                     "Transition de statut interdite : impossible de passer de " + currentStatus + " à " + targetStatus + "."
             );
+        }
+
+        // Si la vente passe à CANCELLED, libération compensatoire du stock réservé
+        if (targetStatus == SaleStatus.CANCELLED) {
+            log.info("Annulation de la vente {} : libération du stock réservé pour la référence {}", id, sale.getReference());
+            productServiceClient.releaseStock(sale.getReference());
         }
 
         sale.setStatus(targetStatus);
