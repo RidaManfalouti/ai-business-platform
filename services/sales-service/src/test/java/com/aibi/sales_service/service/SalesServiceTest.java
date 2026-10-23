@@ -525,4 +525,47 @@ class SalesServiceTest {
         verify(productServiceClient).releaseStock("SAL-20261022-CANCEL");
         verify(saleRepository).save(sale);
     }
+
+    @Test
+    @DisplayName("createSale : Échec compensation réseau après échec persistance -> relance l'exception d'origine sans masquer l'erreur")
+    void createSale_CompensatingReleaseFailureHandledAndLogged() {
+        when(customerServiceClient.getCustomerById(1L)).thenReturn(mockCustomer);
+        when(productServiceClient.getProductById(10L)).thenReturn(mockProduct1);
+        when(productServiceClient.reserveStock(any())).thenReturn(null);
+        when(saleRepository.save(any(Sale.class))).thenThrow(new RuntimeException("Crash base"));
+        when(productServiceClient.releaseStock("REF-COMP-FAIL-2"))
+                .thenThrow(new RemoteServiceUnavailableException("Réseau indisponible pour compensation", org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
+
+        CreateSaleRequest request = new CreateSaleRequest(
+                1L,
+                "REF-COMP-FAIL-2",
+                List.of(new SaleItemRequest(10L, 2))
+        );
+
+        assertThatThrownBy(() -> salesService.createSale(request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Crash base");
+
+        verify(productServiceClient).releaseStock("REF-COMP-FAIL-2");
+    }
+
+    @Test
+    @DisplayName("updateSaleStatus : Vente déjà CANCELLED -> idempotent, ne libère pas le stock une seconde fois")
+    void updateSaleStatus_AlreadyCancelled_DoesNotReleaseAgain() {
+        Sale sale = Sale.builder()
+                .id(1L)
+                .reference("SAL-20261022-ALREADY-CANCELLED")
+                .status(SaleStatus.CANCELLED)
+                .customerId(1L)
+                .totalAmount(new BigDecimal("100.00"))
+                .build();
+        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+
+        SaleResponse response = salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.CANCELLED));
+
+        assertThat(response.status()).isEqualTo(SaleStatus.CANCELLED);
+        // Ne doit JAMAIS appeler releaseStock si la vente était déjà CANCELLED
+        verify(productServiceClient, never()).releaseStock(any());
+        verify(saleRepository, never()).save(any());
+    }
 }

@@ -256,4 +256,77 @@ class StockReservationControllerTest {
         assertThat(finalProduct.getStockQuantity()).isEqualTo(0);
         assertThat(finalProduct.getStockQuantity()).isNotNegative();
     }
+
+    @Test
+    @DisplayName("POST /api/products/reservations : reservationId vide ou blanc -> 400 Bad Request")
+    void shouldRejectReservationWithMissingOrBlankReservationId() throws Exception {
+        String payload = """
+                {
+                    "reservationId": "   ",
+                    "items": [
+                        {
+                            "productId": %d,
+                            "quantity": 1
+                        }
+                    ]
+                }
+                """.formatted(testProduct.getId());
+
+        mockMvc.perform(post("/api/products/reservations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.messages.reservationId", notNullValue()));
+    }
+
+    @Test
+    @DisplayName("POST /api/products/reservations : Quantité invalide (négative ou zéro) -> 400 Bad Request")
+    void shouldRejectReservationWithInvalidQuantity() throws Exception {
+        String payload = """
+                {
+                    "reservationId": "RES-INVALID-QTY",
+                    "items": [
+                        {
+                            "productId": %d,
+                            "quantity": 0
+                        }
+                    ]
+                }
+                """.formatted(testProduct.getId());
+
+        mockMvc.perform(post("/api/products/reservations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.messages['items[0].quantity']", notNullValue()));
+    }
+
+    @Test
+    @DisplayName("POST /api/products/reservations : Liste d'articles vide -> 400 Bad Request")
+    void shouldRejectReservationWithEmptyItems() throws Exception {
+        String payload = """
+                {
+                    "reservationId": "RES-EMPTY-ITEMS",
+                    "items": []
+                }
+                """;
+
+        mockMvc.perform(post("/api/products/reservations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.messages.items", notNullValue()));
+    }
+
+    @Test
+    @DisplayName("POST /api/products/reservations/{id}/release : Réservation inexistante -> 404 Not Found")
+    void shouldReturn404WhenReleasingNonExistentReservation() throws Exception {
+        mockMvc.perform(post("/api/products/reservations/{id}/release", "RES-DOES-NOT-EXIST"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message", containsString("RES-DOES-NOT-EXIST")));
+    }
 }

@@ -173,4 +173,47 @@ class ProductServiceClientTest {
         assertThat(response.status()).isEqualTo("RELEASED");
         mockServer.verify();
     }
+
+    @Test
+    @DisplayName("releaseStock : 404 Not Found reçu de Product Service -> géré sans exception fatale (retourne null)")
+    void releaseStock_NotFound_HandledGracefully() {
+        mockServer.expect(requestTo("http://localhost:8082/api/products/reservations/RES-NON-EXISTENT/release"))
+                .andRespond(withResourceNotFound());
+
+        StockReleaseResponse response = client.releaseStock("RES-NON-EXISTENT");
+        assertThat(response).isNull();
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("reserveStock : Réessai idempotent d'une requête en échec réseau aval -> retourne la réservation existante")
+    void reserveStock_RetryIdempotent() {
+        String json = """
+                {
+                    "reservationId": "RES-RETRY-001",
+                    "status": "RESERVED",
+                    "items": [
+                        { "productId": 1, "quantity": 2 }
+                    ]
+                }
+                """;
+
+        // Simule deux appels successifs avec le même reservationId (ex: après retry)
+        mockServer.expect(requestTo("http://localhost:8082/api/products/reservations"))
+                .andRespond(withStatus(HttpStatus.CREATED).contentType(MediaType.APPLICATION_JSON).body(json));
+
+        mockServer.expect(requestTo("http://localhost:8082/api/products/reservations"))
+                .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
+
+        StockReservationRequest request = new StockReservationRequest("RES-RETRY-001",
+                java.util.List.of(new StockReservationItemRequest(1L, 2)));
+
+        StockReservationResponse res1 = client.reserveStock(request);
+        StockReservationResponse res2 = client.reserveStock(request);
+
+        assertThat(res1.reservationId()).isEqualTo("RES-RETRY-001");
+        assertThat(res2.reservationId()).isEqualTo("RES-RETRY-001");
+        assertThat(res2.status()).isEqualTo("RESERVED");
+        mockServer.verify();
+    }
 }
