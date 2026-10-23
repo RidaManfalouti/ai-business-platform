@@ -6,9 +6,9 @@ spring:
     name: auth-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/auth_db
-    username: ai_platform
-    password: "0000"
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:auth_db}
+    username: ${POSTGRES_USER:ai_platform}
+    password: "${POSTGRES_PASSWORD:0000}"
     driver-class-name: org.postgresql.Driver
 
   jpa:

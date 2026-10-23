@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -523,5 +524,70 @@ class SaleControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("CONFLICT"))
                 .andExpect(jsonPath("$.message", containsString("existe déjà")));
+    }
+
+    @Test
+    @DisplayName("POST /api/sales : Réutilisation de la même clé d'idempotence avec un corps différent -> rejeté avec 409 Conflict en toute sécurité")
+    void shouldRejectReusingIdempotencyKeyWithDifferentBody() throws Exception {
+        String key = "IDEMP-DIFF-" + randomSuffix();
+
+        when(customerServiceClient.getCustomerById(eq(1L)))
+                .thenReturn(new CustomerDto(1L, "Alice", "Original", "alice@example.com", "0123456789", "Acme"));
+        when(customerServiceClient.getCustomerById(eq(2L)))
+                .thenReturn(new CustomerDto(2L, "Bob", "Different", "bob@example.com", "0987654321", "OtherCorp"));
+        when(productServiceClient.getProductById(eq(10L)))
+                .thenReturn(new ProductDto(10L, "Produit A", "Desc A", new BigDecimal("50.00"), 100, "Cat A"));
+        when(productServiceClient.getProductById(eq(20L)))
+                .thenReturn(new ProductDto(20L, "Produit B", "Desc B", new BigDecimal("100.00"), 100, "Cat B"));
+        when(productServiceClient.reserveStock(any()))
+                .thenReturn(null);
+
+        String initialPayload = """
+                {
+                    "customerId": 1,
+                    "items": [
+                        {
+                            "productId": 10,
+                            "quantity": 1
+                        }
+                    ]
+                }
+                """;
+
+        // Première requête avec la clé
+        mockMvc.perform(post("/api/sales")
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(initialPayload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.reference").value(key))
+                .andExpect(jsonPath("$.customerId").value(1L));
+
+        // Deuxième requête avec la MÊME clé mais un corps complètement différent (autre client, autre article)
+        String differentPayload = """
+                {
+                    "customerId": 2,
+                    "items": [
+                        {
+                            "productId": 20,
+                            "quantity": 3
+                        }
+                    ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/sales")
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(differentPayload))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("CONFLICT"))
+                .andExpect(jsonPath("$.message", containsString("existe déjà")));
+
+        // Vérification de la persistance : la vente initiale est inchangée, aucune vente pour le client 2
+        var sales = saleRepository.findAll();
+        assertThat(sales).hasSize(1);
+        assertThat(sales.get(0).getReference()).isEqualTo(key);
+        assertThat(sales.get(0).getCustomerId()).isEqualTo(1L);
     }
 }
