@@ -38,7 +38,7 @@ jobs:
           GITLEAKS_CONFIG: .gitleaks.toml
 
       - name: Run Trivy Dependency Vulnerability Scanner (Informational Check)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -63,7 +63,7 @@ jobs:
         ports:
           - 5433:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U ai_platform"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
