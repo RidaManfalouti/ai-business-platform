@@ -1,0 +1,12 @@
+# Gitleaks configuration for ai-business-platform
+
+[allowlist]
+description = "Global allowlist for development dummy keys and test fixtures"
+paths = [
+    '''.env.example''',
+    '''services/.*/pom\.xml''',
+    '''services/.*/src/test/.*'''
+]
+regexes = [
+    '''dGhpc2lzYXZlcnlzZWNyZXRrZXlmb3Jqd3RoZXJlMTIzNDU='''
+]
