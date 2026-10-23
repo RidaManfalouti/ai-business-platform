@@ -1,5 +1,7 @@
 package com.aibi.auth_service.controller;
 
+import com.aibi.auth_service.entity.User;
+import com.aibi.auth_service.repository.UserRepository;
 import com.aibi.auth_service.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +24,9 @@ class UserControllerTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Test
     void shouldReturn401WhenTokenIsMissing() throws Exception {
         mockMvc.perform(get("/api/users/me"))
@@ -43,6 +48,15 @@ class UserControllerTest {
     @Test
     void shouldReturn200WhenTokenIsValid() throws Exception {
         String email = "testuser01@example.com";
+
+        if (userRepository.findByEmail(email).isEmpty()) {
+            userRepository.save(User.builder()
+                    .username("testuser01")
+                    .email(email)
+                    .password("$2a$10$mbRvYPH8YijtKb6Nqw9fA.lhID2ZEQnro9X6qqJ7ssoouyzZsoiMe")
+                    .role(User.Role.USER)
+                    .build());
+        }
 
         // Génère un JWT signé avec la clé configurée
         String token = jwtService.generateToken(email);
