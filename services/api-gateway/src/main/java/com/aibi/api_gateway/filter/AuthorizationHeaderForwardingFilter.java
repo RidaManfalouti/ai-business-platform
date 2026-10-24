@@ -27,18 +27,24 @@ public class AuthorizationHeaderForwardingFilter implements GlobalFilter, Ordere
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
-        if (authHeader != null && !authHeader.isBlank()) {
-            log.debug("Transmission de l'en-tête Authorization pour la requête [{} {}]",
-                    exchange.getRequest().getMethod(), exchange.getRequest().getURI().getPath());
+        ServerWebExchange mutatedExchange = exchange.mutate()
+                .request(r -> {
+                    if (authHeader != null && !authHeader.isBlank()) {
+                        log.debug("Transmission de l'en-tête Authorization pour la requête [{} {}]",
+                                exchange.getRequest().getMethod(), exchange.getRequest().getURI().getPath());
+                        r.header(HttpHeaders.AUTHORIZATION, authHeader);
+                    }
+                    // Strip any client-supplied role headers to prevent header injection/spoofing
+                    r.headers(h -> {
+                        h.remove("X-Role");
+                        h.remove("X-Roles");
+                        h.remove("X-User-Role");
+                        h.remove("X-Authorities");
+                    });
+                })
+                .build();
 
-            ServerWebExchange mutatedExchange = exchange.mutate()
-                    .request(r -> r.header(HttpHeaders.AUTHORIZATION, authHeader))
-                    .build();
-
-            return chain.filter(mutatedExchange);
-        }
-
-        return chain.filter(exchange);
+        return chain.filter(mutatedExchange);
     }
 
     @Override

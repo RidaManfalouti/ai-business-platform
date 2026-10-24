@@ -290,6 +290,7 @@ class CustomerControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     @DisplayName("DELETE /api/customers/{id} : Suppression valide -> 204 No Content")
     void shouldDeleteCustomerSuccessfully() throws Exception {
         String suffix = randomSuffix();

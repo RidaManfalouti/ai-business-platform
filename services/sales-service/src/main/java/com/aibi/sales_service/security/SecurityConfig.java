@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -31,12 +32,17 @@ import java.util.Base64;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final String jwtSecret;
+    private final JwtRoleConverter jwtRoleConverter;
 
-    public SecurityConfig(@Value("${jwt.secret}") String jwtSecret) {
+    public SecurityConfig(
+            @Value("${jwt.secret}") String jwtSecret,
+            JwtRoleConverter jwtRoleConverter) {
         this.jwtSecret = jwtSecret;
+        this.jwtRoleConverter = jwtRoleConverter;
     }
 
     @Bean
@@ -58,10 +64,15 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html"
                 ).permitAll()
+                // Sales operations accessible to USER and ADMIN
+                .requestMatchers("/api/sales", "/api/sales/**").hasAnyRole("USER", "ADMIN")
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt.decoder(jwtDecoder()))
+                .jwt(jwt -> jwt
+                    .decoder(jwtDecoder())
+                    .jwtAuthenticationConverter(jwtRoleConverter)
+                )
                 .authenticationEntryPoint(authenticationEntryPoint())
                 .accessDeniedHandler(accessDeniedHandler())
             )

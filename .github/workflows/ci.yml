@@ -123,6 +123,9 @@ jobs:
       - name: Validate Docker Compose Configuration
         run: |
           cp .env.example .env
+          echo "INITIAL_ADMIN_ENABLED=true" >> .env
+          echo "INITIAL_ADMIN_EMAIL=ci_admin@example.com" >> .env
+          echo "INITIAL_ADMIN_PASSWORD=AdminPassword123!" >> .env
           docker compose config --quiet
 
       - name: Build All 5 Docker Images
@@ -157,28 +160,42 @@ jobs:
             -d '{"firstName":"Unauthorized"}')
           [ "$UNAUTH_CODE" -eq 401 ] || { echo "Expected 401, got $UNAUTH_CODE"; exit 1; }
 
-          echo "--- 2. Register & Obtain JWT Token ---"
+          echo "--- 2. Register & Obtain USER JWT Token ---"
           AUTH_RES=$(curl -s -X POST "http://localhost:8080/api/auth/register" \
             -H "Content-Type: application/json" \
             -d '{"username":"ci_runner","email":"ci_runner@example.com","password":"Password123!"}')
           TOKEN=$(echo "$AUTH_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])")
           [ -n "$TOKEN" ] || { echo "Failed to acquire JWT token"; exit 1; }
 
-          echo "--- 3. Create Customer ---"
+          echo "--- 3. Verify RBAC Rejection for Normal User on Admin Product Creation (403) ---"
+          FORBIDDEN_PROD_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8080/api/products" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $TOKEN" \
+            -d '{"name":"Unauthorized Product","price":100.0,"stockQuantity":5,"category":"Hardware"}')
+          [ "$FORBIDDEN_PROD_CODE" -eq 403 ] || { echo "Expected 403, got $FORBIDDEN_PROD_CODE"; exit 1; }
+
+          echo "--- 4. Login as Admin & Obtain Admin JWT Token ---"
+          ADMIN_AUTH_RES=$(curl -s -X POST "http://localhost:8080/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"ci_admin@example.com","password":"AdminPassword123!"}')
+          ADMIN_TOKEN=$(echo "$ADMIN_AUTH_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])")
+          [ -n "$ADMIN_TOKEN" ] || { echo "Failed to acquire Admin JWT token"; exit 1; }
+
+          echo "--- 5. Admin Creates Product (Initial stock: 5) ---"
+          PROD_RES=$(curl -s -X POST "http://localhost:8080/api/products" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -d '{"name":"ThinkStation P620","description":"Workstation","price":2500.00,"stockQuantity":5,"category":"Hardware"}')
+          PROD_ID=$(echo "$PROD_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['id'])")
+
+          echo "--- 6. User Creates Customer ---"
           CUST_RES=$(curl -s -X POST "http://localhost:8080/api/customers" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $TOKEN" \
             -d '{"firstName":"Ada","lastName":"Lovelace","email":"ada.lovelace@example.com","company":"Analytical Engine"}')
           CUST_ID=$(echo "$CUST_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['id'])")
 
-          echo "--- 4. Create Product (Initial stock: 5) ---"
-          PROD_RES=$(curl -s -X POST "http://localhost:8080/api/products" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $TOKEN" \
-            -d '{"name":"ThinkStation P620","description":"Workstation","price":2500.00,"stockQuantity":5,"category":"Hardware"}')
-          PROD_ID=$(echo "$PROD_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['id'])")
-
-          echo "--- 5. Create Sale with Stock Reservation (Qty: 2) ---"
+          echo "--- 7. User Creates Sale with Stock Reservation (Qty: 2) ---"
           SALE_RES=$(curl -s -X POST "http://localhost:8080/api/sales" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $TOKEN" \
@@ -186,18 +203,18 @@ jobs:
             -d "{\"customerId\":$CUST_ID,\"items\":[{\"productId\":$PROD_ID,\"quantity\":2}]}")
           SALE_ID=$(echo "$SALE_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['id'])")
 
-          echo "--- 6. Verify Stock Decremented (5 -> 3) ---"
+          echo "--- 8. Verify Stock Decremented (5 -> 3) ---"
           STOCK=$(curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/products/$PROD_ID" | python3 -c "import sys, json; print(json.load(sys.stdin)['stockQuantity'])")
           [ "$STOCK" -eq 3 ] || { echo "Expected stock 3, got $STOCK"; exit 1; }
 
-          echo "--- 7. Verify Overselling Rejection (409 Conflict) ---"
+          echo "--- 9. Verify Overselling Rejection (409 Conflict) ---"
           OVERSELL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8080/api/sales" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $TOKEN" \
             -d "{\"customerId\":$CUST_ID,\"items\":[{\"productId\":$PROD_ID,\"quantity\":10}]}")
           [ "$OVERSELL_CODE" -eq 409 ] || { echo "Expected 409, got $OVERSELL_CODE"; exit 1; }
 
-          echo "--- 8. Cancel Sale & Verify Stock Compensation (3 -> 5) ---"
+          echo "--- 10. Cancel Sale & Verify Stock Compensation (3 -> 5) ---"
           CANCEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH "http://localhost:8080/api/sales/$SALE_ID/status" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $TOKEN" \
@@ -207,7 +224,17 @@ jobs:
           RESTORED_STOCK=$(curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/products/$PROD_ID" | python3 -c "import sys, json; print(json.load(sys.stdin)['stockQuantity'])")
           [ "$RESTORED_STOCK" -eq 5 ] || { echo "Expected restored stock 5, got $RESTORED_STOCK"; exit 1; }
 
-          echo "Smoke test passed successfully!"
+          echo "--- 11. Verify User Cannot Delete Customer (403) ---"
+          FORBIDDEN_CUST_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "http://localhost:8080/api/customers/$CUST_ID" \
+            -H "Authorization: Bearer $TOKEN")
+          [ "$FORBIDDEN_CUST_CODE" -eq 403 ] || { echo "Expected 403, got $FORBIDDEN_CUST_CODE"; exit 1; }
+
+          echo "--- 12. Verify Admin Can Delete Customer (204) ---"
+          ADMIN_DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "http://localhost:8080/api/customers/$CUST_ID" \
+            -H "Authorization: Bearer $ADMIN_TOKEN")
+          [ "$ADMIN_DEL_CODE" -eq 204 ] || { echo "Expected 204, got $ADMIN_DEL_CODE"; exit 1; }
+
+          echo "Smoke test passed successfully with RBAC enforcement!"
 
       - name: Teardown Docker Compose
         if: always()

@@ -45,14 +45,15 @@ public class AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        String token = jwtService.generateToken(savedUser.getEmail());
+        String token = jwtService.generateToken(savedUser);
 
         return new AuthResponse(
                 token,
                 "Bearer",
                 savedUser.getId(),
                 savedUser.getUsername(),
-                savedUser.getEmail()
+                savedUser.getEmail(),
+                savedUser.getRole().name()
         );
     }
 
@@ -68,14 +69,15 @@ public class AuthService {
             throw new BadCredentialsException("Email ou mot de passe incorrect.");
         }
 
-        String token = jwtService.generateToken(user.getEmail());
+        String token = jwtService.generateToken(user);
 
         return new AuthResponse(
                 token,
                 "Bearer",
                 user.getId(),
                 user.getUsername(),
-                user.getEmail()
+                user.getEmail(),
+                user.getRole().name()
         );
     }
 }

@@ -92,56 +92,91 @@ curl http://localhost:8080/actuator/health
 
 ---
 
-## 6. Guide de Test Rapide (Smoke Test)
+## 6. Guide de Test Rapide (Smoke Test & RBAC)
 
 Toutes les requêtes s'effectuent à travers l'**API Gateway** (`http://localhost:8080`) :
 
-### A. Inscription et obtention d'un jeton JWT
+### A. Vérifier le rejet d'un accès anonyme (HTTP 401 Unauthorized)
 ```bash
-TOKEN=$(curl -s -X POST "http://localhost:8080/api/auth/register" \
+curl -i -s "http://localhost:8080/api/products"
+```
+*Réponse attendue : `HTTP/1.1 401 Unauthorized` avec le corps standardisé `{"error":"UNAUTHORIZED","message":"..."}`.*
+
+### B. Inscription d'un utilisateur standard (Rôle `USER`)
+```bash
+USER_TOKEN=$(curl -s -X POST "http://localhost:8080/api/auth/register" \
   -H "Content-Type: application/json" \
   -d '{"username":"dev_user","email":"dev@example.com","password":"Password123!"}' \
   | jq -r '.token')
-echo "Token: $TOKEN"
+echo "User Token: $USER_TOKEN"
 ```
 
-### B. Créer un client
+### C. Vérifier la protection d'un endpoint privilégié (HTTP 403 Forbidden)
+Une tentative de création de produit dans le catalogue par un compte utilisateur standard `USER` est bloquée :
 ```bash
-CUSTOMER_ID=$(curl -s -X POST "http://localhost:8080/api/customers" \
+curl -i -s -X POST "http://localhost:8080/api/products" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"firstName":"Jean","lastName":"Dupont","email":"jean@example.com","company":"Acme Corp"}' \
-  | jq -r '.id')
+  -H "Authorization: Bearer $USER_TOKEN" \
+  -d '{"name":"ThinkPad X1","description":"Ultrabook","price":1500.00,"stockQuantity":10,"category":"PC"}'
+```
+*Réponse attendue : `HTTP/1.1 403 Forbidden` avec `{"error":"FORBIDDEN","message":"Access Denied: insufficient permissions"}`.*
+
+### D. Connexion d'un compte Administrateur (Rôle `ADMIN`)
+En utilisant les identifiants administrateur amorcés au démarrage (`INITIAL_ADMIN_*` configuré dans `.env` / `docker-compose.yml`) :
+```bash
+ADMIN_TOKEN=$(curl -s -X POST "http://localhost:8080/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"AdminSecurePassword123!"}' \
+  | jq -r '.token')
+echo "Admin Token: $ADMIN_TOKEN"
 ```
 
-### C. Créer un produit avec un stock initial de 10
+### E. Création d'un produit par l'administrateur (Succès HTTP 201)
 ```bash
 PRODUCT_ID=$(curl -s -X POST "http://localhost:8080/api/products" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -d '{"name":"ThinkPad X1","description":"Ultrabook","price":1500.00,"stockQuantity":10,"category":"PC"}' \
   | jq -r '.id')
+echo "Product ID: $PRODUCT_ID"
 ```
 
-### D. Créer une vente de 2 unités avec clé d'idempotence
+### F. Opérations métier par l'utilisateur standard (Client, Vente & Réservation)
+L'utilisateur standard `USER` peut créer un client, consulter le catalogue et passer commande :
 ```bash
-curl -s -X POST "http://localhost:8080/api/sales" \
+# 1. Créer un client
+CUSTOMER_ID=$(curl -s -X POST "http://localhost:8080/api/customers" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Idempotency-Key: CMD-DEV-001" \
-  -d "{\"customerId\":$CUSTOMER_ID,\"items\":[{\"productId\":$PRODUCT_ID,\"quantity\":2}]}"
-```
-*Le stock du produit dans `product-service` passe immédiatement de 10 à 8 de manière atomique.*
+  -H "Authorization: Bearer $USER_TOKEN" \
+  -d '{"firstName":"Jean","lastName":"Dupont","email":"jean@example.com","company":"Acme Corp"}' \
+  | jq -r '.id')
 
-### E. Vérifier le rejet d'une survente (Overselling)
+# 2. Créer une vente de 2 unités avec clé d'idempotence
+SALE_ID=$(curl -s -X POST "http://localhost:8080/api/sales" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $USER_TOKEN" \
+  -H "Idempotency-Key: CMD-DEV-001" \
+  -d "{\"customerId\":$CUSTOMER_ID,\"items\":[{\"productId\":$PRODUCT_ID,\"quantity\":2}]}" \
+  | jq -r '.id')
+```
+*Le jeton Bearer de l'utilisateur est propagé de manière sécurisée de `sales-service` vers `product-service` et `customer-service` ; le stock passe de 10 à 8 de façon atomique.*
+
+### G. Vérifier le rejet d'une survente (Overselling)
 ```bash
 # Tenter de réserver 50 unités alors que 8 sont disponibles
 curl -s -X POST "http://localhost:8080/api/sales" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $USER_TOKEN" \
   -d "{\"customerId\":$CUSTOMER_ID,\"items\":[{\"productId\":$PRODUCT_ID,\"quantity\":50}]}"
 ```
-*Réponse : HTTP 409 Conflict (Stock insuffisant).*
+*Réponse attendue : `HTTP/1.1 409 Conflict` (Stock insuffisant).*
+
+### H. Annulation de commande et compensation Saga
+```bash
+curl -s -X POST "http://localhost:8080/api/sales/$SALE_ID/cancel" \
+  -H "Authorization: Bearer $USER_TOKEN"
+```
+*Le stock du produit est automatiquement restauré à 10 par la Saga compensatoire.*
 
 ---
 
@@ -256,3 +291,162 @@ docker compose build --progress=plain product-service
    - Cocher **"Require branches to be up to date before merging"**.
    - Cocher **"Require linear history"** (évite les commits de merge désordonnés).
    - Interdire les suppressions et les pushs forcés (**"Do not allow force pushes"**).
+
+---
+
+## 10. Sécurité & Contrôle d'Accès Basé sur les Rôles (RBAC)
+
+La plateforme met en œuvre un contrôle d'accès basé sur les rôles (**RBAC**) rigoureux, conforme aux exigences de sécurité d'entreprise et aux principes de moindre privilège et de défense en profondeur (*Defense in Depth*).
+
+### 10.1. Modèle de Rôles
+
+Le modèle est minimal, explicite et sécurisé :
+- **`ROLE_USER`** : Rôle standard par défaut accordé à tout nouvel utilisateur lors de son inscription. Permet d'effectuer des opérations métier normales : gestion de son profil personnel, consultation du catalogue de produits, gestion des fiches clients (CRM) et passage de commandes de vente avec réservation atomique de stock.
+- **`ROLE_ADMIN`** : Rôle à privilèges élevés. Requis pour les opérations administratives : gestion du catalogue produit (création, mise à jour, suppression de produits), suppression définitive de fiches clients, consultation de l'ensemble des utilisateurs et modification de leurs rôles.
+
+#### Persistance et Intégrité en Base de Données
+- Les rôles sont persistés dans la table `users` de la base `auth_db`.
+- Une migration Flyway (`V1__create_users_table.sql`) garantit la rétrocompatibilité :
+  - La colonne `role VARCHAR(20) NOT NULL DEFAULT 'USER'` est ajoutée de manière idempotente.
+  - Tout utilisateur préexistant sans rôle se voit assigner `USER` (moindre privilège strict).
+  - Une contrainte SQL `CHECK (role IN ('USER', 'ADMIN'))` empêche toute valeur incohérente en base.
+- **Aucune confiance dans les entrées clientes** :
+  - Le DTO d'enregistrement `RegisterRequest` n'expose aucun attribut `role`.
+  - L'API Gateway filtre et supprime automatiquement tout en-tête d'autorité forgé par le client (`X-Role`, `X-Roles`, `X-User-Role`, `X-Authorities`) via `AuthorizationHeaderForwardingFilter`.
+  - Chaque microservice valide la signature cryptographique du jeton JWT et en extrait les autorités indépendamment de la passerelle.
+
+---
+
+### 10.2. Matrice d'Autorisation
+
+| Service | Méthode & Endpoint | Rôle Requis | Justification Métier |
+| :--- | :--- | :--- | :--- |
+| **auth-service** | `POST /api/auth/register` | Public (Anonyme) | Inscription d'un nouveau compte utilisateur |
+| **auth-service** | `POST /api/auth/login` | Public (Anonyme) | Authentification et obtention du JWT |
+| **auth-service** | `GET /api/users/me` | `USER`, `ADMIN` | Consultation du profil de l'utilisateur connecté |
+| **auth-service** | `GET /api/users` | `ADMIN` | Supervision et audit de l'annuaire des utilisateurs |
+| **auth-service** | `PATCH /api/users/{id}/role` | `ADMIN` | Promotion ou rétrogradation sécurisée d'un utilisateur |
+| **product-service** | `GET /api/products` & `/api/products/**` | `USER`, `ADMIN` | Consultation du catalogue de produits |
+| **product-service** | `POST /api/products` | `ADMIN` | Ajout d'une nouvelle référence au catalogue |
+| **product-service** | `PUT /api/products/**` | `ADMIN` | Modification de fiche produit, prix ou inventaire |
+| **product-service** | `DELETE /api/products/**` | `ADMIN` | Retrait d'une référence du catalogue |
+| **product-service** | `POST /api/products/reservations` | `USER`, `ADMIN` | Réservation atomique de stock (workflow de vente) |
+| **product-service** | `DELETE /api/products/reservations/**` | `USER`, `ADMIN` | Annulation et compensation de réservation de stock |
+| **customer-service** | `GET /api/customers` & `/api/customers/**` | `USER`, `ADMIN` | Consultation des fiches clients |
+| **customer-service** | `POST /api/customers` | `USER`, `ADMIN` | Création d'une nouvelle fiche client |
+| **customer-service** | `PUT /api/customers/**` | `USER`, `ADMIN` | Mise à jour des informations client |
+| **customer-service** | `DELETE /api/customers/**` | `ADMIN` | Suppression définitive d'une fiche client |
+| **sales-service** | `GET /api/sales` & `/api/sales/**` | `USER`, `ADMIN` | Consultation de l'historique des commandes |
+| **sales-service** | `POST /api/sales` | `USER`, `ADMIN` | Passation de commande avec réservation de stock |
+| **sales-service** | `POST /api/sales/{id}/cancel` | `USER`, `ADMIN` | Annulation de commande et déclenchement de la Saga compensatoire |
+
+> **Propagation du Jeton Bearer :**
+> Lors de la création ou de l'annulation d'une vente, `sales-service` relaie de manière transparente l'en-tête `Authorization: Bearer <token>` du client aux services `product-service` et `customer-service` via un intercepteur `RestClient`. Comme les endpoints de réservation et de vérification client autorisent `USER` et `ADMIN`, le flux commercial s'exécute sans friction avec l'identité de l'utilisateur initiateur.
+
+---
+
+### 10.3. Attribution et Modification Sécurisée des Rôles
+
+1. **Amorçage sécurisé de l'administrateur initial (*Zero Hardcoding*) :**
+   Aucun identifiant administrateur n'est codé en dur dans les sources. L'amorce initiale s'effectue au démarrage d'`auth-service` via des variables d'environnement :
+   ```env
+   INITIAL_ADMIN_ENABLED=true
+   INITIAL_ADMIN_EMAIL=admin@example.com
+   INITIAL_ADMIN_PASSWORD=VotreMotDePasseComplexe!
+   INITIAL_ADMIN_USERNAME=admin
+   ```
+   La classe `AdminUserInitializer` vérifie si le compte existe : s'il est absent, il est créé avec `role = 'ADMIN'` ; s'il existe avec un autre rôle, il est promu. Si `INITIAL_ADMIN_ENABLED=false` (défaut de production), aucun compte n'est automatiquement créé.
+
+2. **Délégation d'administration via l'API :**
+   Un administrateur authentifié peut modifier le rôle de n'importe quel utilisateur :
+   ```bash
+   curl -s -X PATCH "http://localhost:8080/api/users/42/role" \
+     -H "Authorization: Bearer $ADMIN_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"role":"ADMIN"}'
+   ```
+   Toute tentative d'appel à cet endpoint par un compte non-administrateur retourne un code `403 Forbidden`.
+
+3. **Procédure d'urgence (*Break-glass*) :**
+   En cas de perte d'accès administrateur en environnement opérationnel, une promotion directe peut être exécutée via SQL sécurisé dans `auth_db` :
+   ```sql
+   UPDATE users SET role = 'ADMIN' WHERE email = 'ops-lead@example.com';
+   ```
+
+---
+
+### 10.4. Structure des Réclamations JWT (Claims)
+
+Les jetons émis par `auth-service` utilisent le standard JSON Web Token (RFC 7519) signé en HMAC-SHA256 :
+
+```json
+{
+  "sub": "user@example.com",
+  "roles": [
+    "ROLE_USER"
+  ],
+  "iat": 1729790000,
+  "exp": 1729876400
+}
+```
+
+#### Extraction et Normalisation des Autorités
+Chaque microservice ressource (`product-service`, `customer-service`, `sales-service`) intègre la classe `JwtRoleConverter` :
+- Extrait la liste de chaînes du claim `roles` (ou `authorities` en fallback).
+- Préfixe automatiquement chaque élément par `ROLE_` s'il ne l'est pas déjà, assurant l'interopérabilité directe avec les expressions Spring Security `@PreAuthorize("hasRole('ADMIN')")` et `.hasRole("ADMIN")`.
+- **Tolérance aux pannes et sécurité :** Si le claim `roles` est absent, vide ou d'un type inattendu, le convertisseur retourne une liste vide d'autorités sans lever d'exception, refusant l'accès aux routes protégées de manière sécurisée (*fail-safe*).
+
+---
+
+### 10.5. Test des Réponses HTTP 401 Unauthorized vs 403 Forbidden
+
+Les microservices et la passerelle renvoient des charges utiles JSON standardisées :
+
+#### HTTP 401 Unauthorized
+Renvoyé lorsque le client n'est pas authentifié :
+- Jeton `Authorization` manquant
+- Jeton mal formé ou signature altérée
+- Jeton expiré
+
+```json
+{
+  "error": "UNAUTHORIZED",
+  "message": "Full authentication is required to access this resource"
+}
+```
+
+*Exemple de commande pour tester le 401 :*
+```bash
+curl -i -X GET "http://localhost:8080/api/products"
+# HTTP/1.1 401 Unauthorized
+```
+
+#### HTTP 403 Forbidden
+Renvoyé lorsque le client est correctement authentifié mais ne détient pas l'autorité requise pour l'opération :
+
+```json
+{
+  "error": "FORBIDDEN",
+  "message": "Access Denied: insufficient permissions"
+}
+```
+
+*Exemple de commande pour tester le 403 :*
+```bash
+# Tentative de suppression d'un client par un compte USER :
+curl -i -X DELETE "http://localhost:8080/api/customers/1" \
+  -H "Authorization: Bearer $USER_TOKEN"
+# HTTP/1.1 403 Forbidden
+```
+
+---
+
+### 10.6. Migration et Considérations de Rétrocompatibilité
+
+1. **Migration de la base de données :**
+   - La migration `V1__create_users_table.sql` dans `auth-service` utilise `IF NOT EXISTS` et des blocs conditionnels idempotents. Elle est compatible avec les installations neuves ainsi qu'avec les bases préexistantes sans perte de données.
+   - Les utilisateurs existants reçoivent le rôle `USER`. Aucun utilisateur préexistant n'obtient de privilèges administrateur par défaut.
+
+2. **Transition des Jetons JWT :**
+   - Les anciens jetons JWT émis avant l'implémentation du RBAC ne comportent pas le claim `roles`.
+   - Les services ressources continuent à valider cryptographiquement ces jetons, mais leur attribuent zéro autorité. Les détenteurs d'anciens jetons sont invités à se reconnecter via `POST /api/auth/login` pour obtenir un jeton enrichi de leur rôle.
