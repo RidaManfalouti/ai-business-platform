@@ -49,3 +49,18 @@ services:
     url: ${CUSTOMER_SERVICE_URL:http://localhost:8083}
     connect-timeout-ms: ${CUSTOMER_SERVICE_CONNECT_TIMEOUT_MS:3000}
     read-timeout-ms: ${CUSTOMER_SERVICE_READ_TIMEOUT_MS:3000}
+
+saga:
+  recovery:
+    enabled: ${SAGA_RECOVERY_ENABLED:true}
+    interval-ms: ${SAGA_RECOVERY_INTERVAL_MS:5000}
+    batch-size: ${SAGA_RECOVERY_BATCH_SIZE:10}
+    max-attempts: ${SAGA_RECOVERY_MAX_ATTEMPTS:5}
+    initial-backoff-ms: ${SAGA_RECOVERY_INITIAL_BACKOFF_MS:1000}
+    max-backoff-ms: ${SAGA_RECOVERY_MAX_BACKOFF_MS:30000}
+    backoff-multiplier: ${SAGA_RECOVERY_BACKOFF_MULTIPLIER:2.0}
+  reconciliation:
+    enabled: ${SAGA_RECONCILIATION_ENABLED:true}
+    interval-ms: ${SAGA_RECONCILIATION_INTERVAL_MS:60000}
+    stale-threshold-minutes: ${SAGA_RECONCILIATION_STALE_MINUTES:15}
+

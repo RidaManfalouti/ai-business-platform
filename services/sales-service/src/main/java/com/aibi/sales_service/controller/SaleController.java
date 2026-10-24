@@ -104,4 +104,17 @@ public class SaleController {
             @Valid @RequestBody UpdateSaleStatusRequest request) {
         return ResponseEntity.ok(salesService.updateSaleStatus(id, request));
     }
+
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Annuler une commande de vente", description = "Annule la commande et orchestre la libération compensatoire du stock réservé via une Saga durable")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Vente annulée avec succès"),
+            @ApiResponse(responseCode = "404", description = "Vente introuvable"),
+            @ApiResponse(responseCode = "409", description = "Transition de statut interdite")
+    })
+    public ResponseEntity<SaleResponse> cancelSale(
+            @Parameter(description = "Identifiant de la vente à annuler", example = "1")
+            @PathVariable Long id) {
+        return ResponseEntity.ok(salesService.updateSaleStatus(id, new UpdateSaleStatusRequest(com.aibi.sales_service.model.SaleStatus.CANCELLED)));
+    }
 }

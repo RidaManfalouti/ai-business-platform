@@ -450,3 +450,144 @@ curl -i -X DELETE "http://localhost:8080/api/customers/1" \
 2. **Transition des Jetons JWT :**
    - Les anciens jetons JWT émis avant l'implémentation du RBAC ne comportent pas le claim `roles`.
    - Les services ressources continuent à valider cryptographiquement ces jetons, mais leur attribuent zéro autorité. Les détenteurs d'anciens jetons sont invités à se reconnecter via `POST /api/auth/login` pour obtenir un jeton enrichi de leur rôle.
+
+---
+
+## 11. Saga Durable, Reprise Automatique et Réconciliation de Stock
+
+La plateforme intègre un pattern **Saga orchestré durable** pour garantir la cohérence éventuelle entre la réservation de stock dans `product-service` et la création/annulation de commandes dans `sales-service`, **sans broker Kafka** et avec une résilience totale aux arrêts de processus ou pannes réseau.
+
+### 11.1. Machine à États de la Saga
+
+La table relationnelle `sagas` dans `sales_db` modélise explicitement le cycle de vie de chaque transaction distribuée. Chaque transition est validée de manière stricte par l'énumération `SagaStatus` et auditée dans la table append-only `saga_events`.
+
+| Statut Saga | Signification | Transitions Valides Suivantes |
+| :--- | :--- | :--- |
+| `STARTED` | Saga initialisée avant tout appel réseau | `STOCK_RESERVED`, `COMPENSATION_PENDING`, `COMPENSATED` |
+| `STOCK_RESERVED` | Stock décrémenté et réservé avec succès dans Product Service | `SALE_PERSISTED`, `COMPENSATION_PENDING`, `COMPENSATING` |
+| `SALE_PERSISTED` | Vente enregistrée avec succès dans la base locale `sales_db` | `COMPLETED`, `COMPENSATION_PENDING` |
+| `COMPLETED` | Transaction terminée avec succès | `COMPENSATION_PENDING` (lors d'une annulation de vente ultérieure) |
+| `COMPENSATION_PENDING` | Compensation nécessaire (échec local ou annulation), en attente d'exécution | `COMPENSATING`, `FAILED_REQUIRES_ATTENTION`, `COMPENSATED` |
+| `COMPENSATING` | Libération de stock en cours de tentative par le worker | `COMPENSATED`, `COMPENSATION_PENDING`, `FAILED_REQUIRES_ATTENTION` |
+| `COMPENSATED` | **État final :** Compensation confirmée avec succès par Product Service | *(Aucune - État terminal)* |
+| `FAILED_REQUIRES_ATTENTION` | Seuil maximal de réessais atteint sans succès ; intervention humaine requise | `COMPENSATION_PENDING` (réessai manuel), `COMPENSATED` (résolution admin) |
+
+---
+
+### 11.2. Architecture de Reprise Distribuée (`SagaRecoveryWorker`)
+
+Le worker de reprise asynchrone s'exécute en tâche de fond dans `sales-service` et assure la reprise des compensations interrompues par un crash conteneur, un redémarrage ou une coupure réseau :
+
+1. **Sélection atomique multi-instances (`FOR UPDATE SKIP LOCKED`) :**
+   ```sql
+   SELECT * FROM sagas
+   WHERE status IN ('COMPENSATION_PENDING', 'COMPENSATING')
+     AND (next_retry_at IS NULL OR next_retry_at <= :now)
+   ORDER BY next_retry_at ASC NULLS FIRST
+   LIMIT :limit
+   FOR UPDATE SKIP LOCKED;
+   ```
+   En environnement multi-instances avec plusieurs répliques de `sales-service`, la clause `SKIP LOCKED` garantit qu'aucune Saga n'est traitée simultanément par deux nœuds, sans requérir de coordinateur distribué externe.
+
+2. **Progression exponentielle bornée avec Jitter (Bounded Exponential Backoff) :**
+   $$\text{délai} = \min\left(\text{maxBackoffMs}, \text{initialBackoffMs} \times \text{multiplier}^{(\text{attempt} - 1)}\right) \times (1 \pm \text{jitter})$$
+   - Paramètres par défaut : délai initial 1 000 ms, multiplicateur 2.0, plafond maximal 30 000 ms, gigue aléatoire de ±20% pour prévenir les tempêtes de requêtes synchronisées (*thundering herd*).
+
+3. **Authentification asynchrone sécurisée (`InternalTokenService`) :**
+   Lors des réessais en tâche de fond, aucun contexte HTTP utilisateur n'est présent. Le worker génère un jeton JWT interne de courte durée signé avec la clé secrète de la plateforme (`ROLE_ADMIN` et `ROLE_SERVICE_INTERNAL`) permettant à `ProductServiceClient` d'appeler l'endpoint de libération en toute sécurité.
+
+---
+
+### 11.3. Compensation Idempotente dans `product-service`
+
+L'endpoint `POST /api/products/reservations/{reservationId}/release` garantit une compensation strictement idempotente :
+- Acquisition d'un verrou pessimiste exclusif (`@Lock(LockModeType.PESSIMISTIC_WRITE)`) sur la réservation.
+- Si le statut de la réservation est déjà `RELEASED`, l'opération retourne immédiatement `200 OK` avec le libellé `"Réservation déjà libérée"` sans incrémenter le stock une seconde fois.
+- Si le statut est `RESERVED`, le stock de chaque article est recrédité en base, le statut bascule à `RELEASED`, et la date `released_at` est horodatée.
+- Protection contre les mises à jour concurrentes via un champ de versionning optimiste `@Version Long version`.
+
+---
+
+### 11.4. Audit et Réconciliation de Stock (`StockReconciliationService`)
+
+Le service de réconciliation effectue un audit périodique en **lecture seule** pour identifier les anomalies distribuées sans altérer automatiquement les quantités de stock :
+
+#### Types d'anomalies détectées :
+1. `SAGA_REQUIRES_MANUAL_ATTENTION` : Sagas bloquées dans l'état `FAILED_REQUIRES_ATTENTION` après épuisement de tous les réessais automatiques.
+2. `STALE_PENDING_COMPENSATION` : Sagas restant en statut `COMPENSATION_PENDING` depuis plus de `X` minutes (défaut : 15 min).
+3. `CANCELLED_SALE_RESERVATION_STILL_RESERVED` : Ventes passées à `CANCELLED` alors que la réservation de stock associée dans `product-service` demeure à l'état `RESERVED`.
+
+---
+
+### 11.5. Runbook Opérationnel pour les Équipes d'Exploitation
+
+#### A. Que faire lorsqu'une Saga est en `FAILED_REQUIRES_ATTENTION` ?
+
+1. **Lister les Sagas nécessitant une attention :**
+   ```bash
+   curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+     "http://localhost:8080/api/sales/sagas?status=FAILED_REQUIRES_ATTENTION" | jq .
+   ```
+
+2. **Consulter le diagnostic et l'historique d'une Saga :**
+   ```bash
+   curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+     "http://localhost:8080/api/sales/sagas/SAGA-ID-123" | jq .
+   ```
+   Inspectez le champ `lastError` pour identifier la cause (indisponibilité prolongée de `product-service`, erreur réseau, etc.).
+
+3. **Option 1 - Déclencher un réessai manuel automatique :**
+   Une fois le service distant rétabli, réinjectez la Saga dans la file de compensation :
+   ```bash
+   curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+     "http://localhost:8080/api/sales/sagas/SAGA-ID-123/retry" | jq .
+   ```
+   La Saga repasse en `COMPENSATION_PENDING` et le compteur de tentatives est réinitialisé.
+
+4. **Option 2 - Résoudre administrativement après correction manuelle :**
+   Si l'inventaire a été ajusté manuellement au niveau de l'entrepôt :
+   ```bash
+   curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+     "http://localhost:8080/api/sales/sagas/SAGA-ID-123/resolve?reason=Ajustement+manuel+inventaire+effectue" | jq .
+   ```
+   La Saga passe en `COMPENSATED` et l'audit trail enregistre l'identité de l'opérateur et le motif.
+
+---
+
+#### B. Exécution manuelle de la réconciliation de stock
+
+Pour forcer un audit immédiat de l'intégrité globale du stock :
+
+```bash
+# Déclencher un rapport d'audit immédiat
+curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "http://localhost:8080/api/sales/reconciliation/run?staleMinutes=15" | jq .
+
+# Consulter le dernier rapport généré
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "http://localhost:8080/api/sales/reconciliation/latest" | jq .
+```
+
+Pour auditer directement les réservations orphelines dans `product-service` :
+```bash
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "http://localhost:8080/api/products/reservations/stale?staleMinutes=15" | jq .
+```
+
+---
+
+#### C. Variables d'environnement & Paramétrage
+
+| Variable d'Environnement | Valeur par défaut | Description |
+| :--- | :--- | :--- |
+| `SAGA_RECOVERY_ENABLED` | `true` | Active ou suspend le worker de reprise automatique |
+| `SAGA_RECOVERY_INTERVAL_MS` | `5000` | Intervalle entre chaque passage du worker de reprise (ms) |
+| `SAGA_RECOVERY_BATCH_SIZE` | `10` | Nombre maximal de Sagas récupérées par lot |
+| `SAGA_RECOVERY_MAX_ATTEMPTS` | `5` | Seuil de tentatives avant passage en `FAILED_REQUIRES_ATTENTION` |
+| `SAGA_RECOVERY_INITIAL_BACKOFF_MS` | `1000` | Délai initial de réessai (ms) |
+| `SAGA_RECOVERY_MAX_BACKOFF_MS` | `30000` | Plafond maximal du délai de réessai (ms) |
+| `SAGA_RECOVERY_BACKOFF_MULTIPLIER` | `2.0` | Facteur multiplicateur exponentiel |
+| `SAGA_RECONCILIATION_ENABLED` | `true` | Active ou suspend le job planifié d'audit de réconciliation |
+| `SAGA_RECONCILIATION_INTERVAL_MS` | `60000` | Intervalle entre chaque audit automatique (ms) |
+| `SAGA_RECONCILIATION_STALE_MINUTES`| `15` | Seuil d'âge (en minutes) pour considérer une réservation comme bloquée |
+

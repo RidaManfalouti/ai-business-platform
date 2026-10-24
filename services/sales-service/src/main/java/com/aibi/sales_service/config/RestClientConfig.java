@@ -1,5 +1,6 @@
 package com.aibi.sales_service.config;
 
+import com.aibi.sales_service.security.InternalTokenService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +16,12 @@ import java.time.Duration;
 
 @Configuration
 public class RestClientConfig {
+
+    private final InternalTokenService internalTokenService;
+
+    public RestClientConfig(InternalTokenService internalTokenService) {
+        this.internalTokenService = internalTokenService;
+    }
 
     @Bean
     public RestClient productRestClient(
@@ -57,8 +64,13 @@ public class RestClientConfig {
                 String authHeader = servletAttributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
                 if (authHeader != null && !authHeader.isBlank()) {
                     request.getHeaders().set(HttpHeaders.AUTHORIZATION, authHeader);
+                    return execution.execute(request, body);
                 }
             }
+            // En l'absence de contexte de requête utilisateur (ex: worker de reprise de Saga,
+            // tâche planifiée de réconciliation), injection d'un jeton de service interne signé
+            String internalToken = internalTokenService.getInternalServiceToken();
+            request.getHeaders().set(HttpHeaders.AUTHORIZATION, "Bearer " + internalToken);
             return execution.execute(request, body);
         };
     }

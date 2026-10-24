@@ -171,4 +171,48 @@ class SaleSecurityTest {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("ROLE_USER tente d'accéder aux endpoints d'administration Saga -> 403 Forbidden")
+    void shouldReturn403WhenUserAttemptsToAccessSagas() throws Exception {
+        String userToken = createToken("user@example.com", 3600000);
+
+        mockMvc.perform(get("/api/sales/sagas")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("ROLE_ADMIN accède aux endpoints d'administration Saga -> 200 OK")
+    void shouldReturn200WhenAdminAccessesSagas() throws Exception {
+        String adminToken = createToken("admin@example.com", List.of("ROLE_ADMIN"), 3600000);
+
+        mockMvc.perform(get("/api/sales/sagas")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("ROLE_USER tente d'exécuter la réconciliation de stock -> 403 Forbidden")
+    void shouldReturn403WhenUserAttemptsReconciliation() throws Exception {
+        String userToken = createToken("user@example.com", 3600000);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/sales/reconciliation/run")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("ROLE_ADMIN exécute la réconciliation de stock -> 200 OK")
+    void shouldReturn200WhenAdminRunsReconciliation() throws Exception {
+        String adminToken = createToken("admin@example.com", List.of("ROLE_ADMIN"), 3600000);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/sales/reconciliation/run")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.executedAt").exists())
+                .andExpect(jsonPath("$.discrepanciesCount").isNumber());
+    }
 }

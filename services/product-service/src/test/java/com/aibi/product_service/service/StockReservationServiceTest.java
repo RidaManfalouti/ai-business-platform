@@ -216,7 +216,7 @@ class StockReservationServiceTest {
         reservation.addItem(StockReservationItem.builder().productId(1L).quantity(3).build());
         reservation.addItem(StockReservationItem.builder().productId(2L).quantity(1).build());
 
-        when(reservationRepository.findByReservationId("RES-COMP")).thenReturn(Optional.of(reservation));
+        when(reservationRepository.findByReservationIdForUpdate("RES-COMP")).thenReturn(Optional.of(reservation));
         when(reservationRepository.save(any(StockReservation.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StockReleaseResponse response = reservationService.releaseStock("RES-COMP");
@@ -227,6 +227,7 @@ class StockReservationServiceTest {
         verify(productRepository).incrementStock(1L, 3);
         verify(productRepository).incrementStock(2L, 1);
         assertThat(reservation.getStatus()).isEqualTo(StockReservationStatus.RELEASED);
+        assertThat(reservation.getReleasedAt()).isNotNull();
         verify(reservationRepository).save(reservation);
     }
 
@@ -239,7 +240,7 @@ class StockReservationServiceTest {
                 .status(StockReservationStatus.RELEASED)
                 .build();
 
-        when(reservationRepository.findByReservationId("RES-COMP-AGAIN")).thenReturn(Optional.of(reservation));
+        when(reservationRepository.findByReservationIdForUpdate("RES-COMP-AGAIN")).thenReturn(Optional.of(reservation));
 
         StockReleaseResponse response = reservationService.releaseStock("RES-COMP-AGAIN");
 
@@ -251,10 +252,28 @@ class StockReservationServiceTest {
     @Test
     @DisplayName("releaseStock : Réservation inexistante -> ReservationNotFoundException")
     void releaseStock_NotFound() {
-        when(reservationRepository.findByReservationId("UNKNOWN")).thenReturn(Optional.empty());
+        when(reservationRepository.findByReservationIdForUpdate("UNKNOWN")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reservationService.releaseStock("UNKNOWN"))
                 .isInstanceOf(ReservationNotFoundException.class)
                 .hasMessageContaining("UNKNOWN");
+    }
+
+    @Test
+    @DisplayName("getStaleReservations : Récupère les réservations en attente au-delà du seuil")
+    void getStaleReservations_Success() {
+        StockReservation stale = StockReservation.builder()
+                .id(99L)
+                .reservationId("RES-STALE")
+                .status(StockReservationStatus.RESERVED)
+                .build();
+
+        when(reservationRepository.findByStatusAndCreatedAtBefore(eq(StockReservationStatus.RESERVED), any()))
+                .thenReturn(List.of(stale));
+
+        List<StockReservationResponse> results = reservationService.getStaleReservations(30);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).reservationId()).isEqualTo("RES-STALE");
     }
 }

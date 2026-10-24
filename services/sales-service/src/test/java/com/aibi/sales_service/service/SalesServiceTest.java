@@ -49,6 +49,9 @@ class SalesServiceTest {
     @Mock
     private CustomerServiceClient customerServiceClient;
 
+    @Mock
+    private com.aibi.sales_service.saga.service.SagaService sagaService;
+
     @InjectMocks
     private SalesService salesService;
 
