@@ -11,11 +11,25 @@ spring:
     password: "${POSTGRES_PASSWORD:0000}"
     driver-class-name: org.postgresql.Driver
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+app:
+  security:
+    initial-admin:
+      enabled: ${INITIAL_ADMIN_ENABLED:false}
+      username: ${INITIAL_ADMIN_USERNAME:admin}
+      email: ${INITIAL_ADMIN_EMAIL:admin@platform.local}
+      password: ${INITIAL_ADMIN_PASSWORD:}
 
 management:
   endpoints:

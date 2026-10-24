@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,6 +30,7 @@ public class CustomerController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @Operation(summary = "Créer un nouveau client", description = "Enregistre un nouveau profil client")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Client créé avec succès"),
@@ -42,6 +44,7 @@ public class CustomerController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @Operation(summary = "Consulter un client par son identifiant", description = "Retourne les informations d'un client spécifique")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Client trouvé"),
@@ -53,6 +56,7 @@ public class CustomerController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @Operation(summary = "Lister les clients avec pagination et tri", description = "Récupère les clients de manière paginée et triée")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Liste paginée des clients")
@@ -63,6 +67,7 @@ public class CustomerController {
     }
 
     @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @Operation(summary = "Rechercher des clients par nom ou par email", description = "Recherche multicritère insensible à la casse")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Résultats paginés de la recherche")
@@ -83,6 +88,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     @Operation(summary = "Modifier les informations d'un client", description = "Met à jour l'ensemble des coordonnées d'un client")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Client modifié avec succès"),
@@ -97,9 +103,11 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Supprimer un client", description = "Supprime définitivement un client du système")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Client supprimé avec succès"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Droits administrateur requis"),
         @ApiResponse(responseCode = "404", description = "Client introuvable")
     })
     public ResponseEntity<Void> deleteCustomer(

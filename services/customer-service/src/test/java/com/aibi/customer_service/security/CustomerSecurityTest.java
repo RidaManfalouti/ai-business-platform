@@ -13,12 +13,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -33,18 +36,25 @@ class CustomerSecurityTest {
     private String jwtSecret;
 
     private String createToken(String subject, long validityMillis) {
+        return createToken(subject, List.of("ROLE_USER"), validityMillis);
+    }
+
+    private String createToken(String subject, Object rolesClaim, long validityMillis) {
         try {
             byte[] secretBytes = Base64.getDecoder().decode(jwtSecret);
             JWSSigner signer = new MACSigner(secretBytes);
 
             long now = System.currentTimeMillis();
-            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+            JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
                     .subject(subject)
                     .issueTime(new Date(now))
-                    .expirationTime(new Date(now + validityMillis))
-                    .build();
+                    .expirationTime(new Date(now + validityMillis));
 
-            SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+            if (rolesClaim != null) {
+                builder.claim("roles", rolesClaim);
+            }
+
+            SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), builder.build());
             signedJWT.sign(signer);
 
             return signedJWT.serialize();
@@ -84,6 +94,7 @@ class CustomerSecurityTest {
                 new JWSHeader(JWSAlgorithm.HS256),
                 new JWTClaimsSet.Builder()
                         .subject("user@example.com")
+                        .claim("roles", List.of("ROLE_USER"))
                         .expirationTime(new Date(System.currentTimeMillis() + 3600000))
                         .build()
         );
@@ -109,13 +120,74 @@ class CustomerSecurityTest {
     }
 
     @Test
-    @DisplayName("Requête avec token valide -> 200 OK")
+    @DisplayName("Requête avec token valide (ROLE_USER) -> 200 OK sur consultation clients")
     void shouldReturn200WhenTokenIsValid() throws Exception {
         String validToken = createToken("validuser@example.com", 3600000);
 
         mockMvc.perform(get("/api/customers")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("USER tentant de supprimer un client -> 403 Forbidden")
+    void shouldReturn403WhenUserAttemptsToDeleteCustomer() throws Exception {
+        String userToken = createToken("user@example.com", List.of("ROLE_USER"), 3600000);
+
+        mockMvc.perform(delete("/api/customers/1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("Accès refusé. Droits insuffisants."));
+    }
+
+    @Test
+    @DisplayName("ADMIN supprimant un client existant -> 204 No Content")
+    void shouldAllowAdminToDeleteCustomer() throws Exception {
+        String adminToken = createToken("admin@example.com", List.of("ROLE_ADMIN"), 3600000);
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String payload = """
+                {
+                    "firstName": "ToDelete",
+                    "lastName": "User",
+                    "email": "cust.delete.%s@example.com"
+                }
+                """.formatted(suffix);
+
+        String createRes = mockMvc.perform(post("/api/customers")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String idStr = createRes.replaceAll(".*\"id\":(\\d+).*", "$1");
+
+        mockMvc.perform(delete("/api/customers/" + idStr)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("Token sans claim roles accédant à endpoint avec rôle -> 403 Forbidden")
+    void shouldReturn403WhenRolesClaimIsMissingOnDeleteEndpoint() throws Exception {
+        String tokenNoRoles = createToken("noroles@example.com", null, 3600000);
+
+        mockMvc.perform(delete("/api/customers/1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenNoRoles))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("Token avec rôle malformé tentant suppression -> 403 Forbidden")
+    void shouldReturn403WhenRoleIsMalformed() throws Exception {
+        String malformedToken = createToken("weird@example.com", List.of("UNKNOWN_ROLE"), 3600000);
+
+        mockMvc.perform(delete("/api/customers/1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + malformedToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
     }
 
     @Test

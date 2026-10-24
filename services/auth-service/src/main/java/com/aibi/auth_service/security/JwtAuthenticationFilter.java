@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -49,22 +51,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             if (jwtService.isTokenValid(token)
-                    && SecurityContextHolder.getContext()
-                            .getAuthentication() == null) {
+                    && SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 String email = jwtService.extractEmail(token);
-
-                Optional<User> optionalUser =
-                        userRepository.findByEmail(email);
+                Optional<User> optionalUser = userRepository.findByEmail(email);
 
                 if (optionalUser.isPresent()) {
                     User user = optionalUser.get();
+                    List<String> tokenRoles = jwtService.extractRoles(token);
+
+                    List<SimpleGrantedAuthority> authorities = tokenRoles.stream()
+                            .map(SimpleGrantedAuthority::new)
+                            .toList();
 
                     UserDetails userDetails =
                             org.springframework.security.core.userdetails.User
                                     .withUsername(user.getEmail())
                                     .password(user.getPassword())
-                                    .authorities("ROLE_" + user.getRole().name())
+                                    .authorities(authorities)
                                     .build();
 
                     var authentication =

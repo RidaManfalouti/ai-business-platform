@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,18 +34,25 @@ class SaleSecurityTest {
     private String jwtSecret;
 
     private String createToken(String subject, long validityMillis) {
+        return createToken(subject, List.of("ROLE_USER"), validityMillis);
+    }
+
+    private String createToken(String subject, Object rolesClaim, long validityMillis) {
         try {
             byte[] secretBytes = Base64.getDecoder().decode(jwtSecret);
             JWSSigner signer = new MACSigner(secretBytes);
 
             long now = System.currentTimeMillis();
-            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+            JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
                     .subject(subject)
                     .issueTime(new Date(now))
-                    .expirationTime(new Date(now + validityMillis))
-                    .build();
+                    .expirationTime(new Date(now + validityMillis));
 
-            SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+            if (rolesClaim != null) {
+                builder.claim("roles", rolesClaim);
+            }
+
+            SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), builder.build());
             signedJWT.sign(signer);
 
             return signedJWT.serialize();
@@ -84,6 +92,7 @@ class SaleSecurityTest {
                 new JWSHeader(JWSAlgorithm.HS256),
                 new JWTClaimsSet.Builder()
                         .subject("user@example.com")
+                        .claim("roles", List.of("ROLE_USER"))
                         .expirationTime(new Date(System.currentTimeMillis() + 3600000))
                         .build()
         );
@@ -101,21 +110,52 @@ class SaleSecurityTest {
     void shouldReturn401WhenTokenIsExpired() throws Exception {
         String expiredToken = createToken("user@example.com", -60000);
 
-        mockMvc.perform(get("/api/sales")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken))
+        mockMvc.perform(get("/api/sales"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED"))
                 .andExpect(jsonPath("$.message").value("Authentification requise ou token invalide."));
     }
 
     @Test
-    @DisplayName("Requête avec token valide -> 200 OK")
+    @DisplayName("Requête avec token valide (ROLE_USER) -> 200 OK")
     void shouldReturn200WhenTokenIsValid() throws Exception {
-        String validToken = createToken("salesuser@example.com", 3600000);
+        String validToken = createToken("validuser@example.com", 3600000);
 
         mockMvc.perform(get("/api/sales")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Requête avec token valide (ROLE_ADMIN) -> 200 OK")
+    void shouldReturn200WhenAdminTokenIsValid() throws Exception {
+        String adminToken = createToken("admin@example.com", List.of("ROLE_ADMIN"), 3600000);
+
+        mockMvc.perform(get("/api/sales")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Token sans claim roles accédant à endpoint protégé -> 403 Forbidden")
+    void shouldReturn403WhenRolesClaimIsMissing() throws Exception {
+        String tokenNoRoles = createToken("noroles@example.com", null, 3600000);
+
+        mockMvc.perform(get("/api/sales")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenNoRoles))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("Token avec claim roles malformé -> 403 Forbidden")
+    void shouldReturn403WhenRoleIsMalformed() throws Exception {
+        String malformedToken = createToken("weird@example.com", List.of("UNKNOWN_ROLE"), 3600000);
+
+        mockMvc.perform(get("/api/sales")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + malformedToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
     }
 
     @Test

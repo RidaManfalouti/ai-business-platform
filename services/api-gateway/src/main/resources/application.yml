@@ -16,7 +16,7 @@ spring:
             - id: auth-service-auth
               uri: ${AUTH_SERVICE_URL:http://localhost:8081}
               predicates:
-                - Path=/api/auth/**
+                - Path=/api/auth, /api/auth/**
 
             # ====================================================================
             # Route : Auth Service - Profil utilisateur & vérification JWT
@@ -24,7 +24,7 @@ spring:
             - id: auth-service-users
               uri: ${AUTH_SERVICE_URL:http://localhost:8081}
               predicates:
-                - Path=/api/users/**
+                - Path=/api/users, /api/users/**
 
             # ====================================================================
             # Routes préparées pour les futurs services de la plateforme
@@ -39,7 +39,7 @@ spring:
             - id: customer-service
               uri: ${CUSTOMER_SERVICE_URL:http://localhost:8083}
               predicates:
-                - Path=/api/customers/**
+                - Path=/api/customers, /api/customers/**
 
             # ====================================================================
             # Route : Product Service - Gestion du catalogue
@@ -47,7 +47,7 @@ spring:
             - id: product-service
               uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
               predicates:
-                - Path=/api/products/**
+                - Path=/api/products, /api/products/**
 
             # ====================================================================
             # Route : Sales Service - Gestion des ventes
@@ -55,7 +55,7 @@ spring:
             - id: sales-service
               uri: ${SALES_SERVICE_URL:http://localhost:8084}
               predicates:
-                - Path=/api/sales/**
+                - Path=/api/sales, /api/sales/**
 
             - id: analytics-service
               uri: ${ANALYTICS_SERVICE_URL:forward:/fallback/service-unavailable}
