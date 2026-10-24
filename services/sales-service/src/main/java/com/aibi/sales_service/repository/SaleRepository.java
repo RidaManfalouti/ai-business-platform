@@ -22,4 +22,6 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     Optional<Sale> findByIdWithItems(@Param("id") Long id);
 
     Page<Sale> findByCustomerId(Long customerId, Pageable pageable);
+
+    Page<Sale> findByStatus(com.aibi.sales_service.model.SaleStatus status, Pageable pageable);
 }

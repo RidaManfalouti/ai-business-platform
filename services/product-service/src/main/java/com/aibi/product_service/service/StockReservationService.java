@@ -103,11 +103,14 @@ public class StockReservationService {
     }
 
     /**
-     * Libère une réservation de stock de manière idempotente (transaction compensatoire Saga).
+     * Libère une réservation de stock de manière strictement atomique et idempotente (transaction compensatoire Saga).
+     *
+     * Utilise un verrou pessimiste exclusif (SELECT FOR UPDATE) au niveau de la base de données PostgreSQL
+     * pour garantir qu'aucune exécution concurrente ne puisse réincrémenter le stock plusieurs fois.
      */
     public StockReleaseResponse releaseStock(String reservationId) {
         String cleanReservationId = reservationId.trim();
-        StockReservation reservation = reservationRepository.findByReservationId(cleanReservationId)
+        StockReservation reservation = reservationRepository.findByReservationIdForUpdate(cleanReservationId)
                 .orElseThrow(() -> new ReservationNotFoundException("Réservation introuvable avec l'identifiant : " + cleanReservationId));
 
         if (reservation.getStatus() == StockReservationStatus.RELEASED) {
@@ -121,6 +124,7 @@ public class StockReservationService {
         }
 
         reservation.setStatus(StockReservationStatus.RELEASED);
+        reservation.setReleasedAt(java.time.LocalDateTime.now());
         reservationRepository.save(reservation);
 
         log.info("Réservation de stock {} libérée avec succès (compensation exécutée).", cleanReservationId);
@@ -133,5 +137,14 @@ public class StockReservationService {
         StockReservation reservation = reservationRepository.findByReservationId(cleanReservationId)
                 .orElseThrow(() -> new ReservationNotFoundException("Réservation introuvable avec l'identifiant : " + cleanReservationId));
         return StockReservationResponse.fromEntity(reservation);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StockReservationResponse> getStaleReservations(int olderThanMinutes) {
+        java.time.LocalDateTime threshold = java.time.LocalDateTime.now().minusMinutes(olderThanMinutes);
+        return reservationRepository.findByStatusAndCreatedAtBefore(StockReservationStatus.RESERVED, threshold)
+                .stream()
+                .map(StockReservationResponse::fromEntity)
+                .toList();
     }
 }

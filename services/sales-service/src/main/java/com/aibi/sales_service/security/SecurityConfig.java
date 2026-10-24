@@ -64,7 +64,10 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html"
                 ).permitAll()
-                // Sales operations accessible to USER and ADMIN
+                // Administrative Saga & Reconciliation operations restricted to ADMIN
+                .requestMatchers("/api/sales/sagas", "/api/sales/sagas/**").hasRole("ADMIN")
+                .requestMatchers("/api/sales/reconciliation", "/api/sales/reconciliation/**").hasRole("ADMIN")
+                // Standard sales operations accessible to USER and ADMIN
                 .requestMatchers("/api/sales", "/api/sales/**").hasAnyRole("USER", "ADMIN")
                 .anyRequest().authenticated()
             )

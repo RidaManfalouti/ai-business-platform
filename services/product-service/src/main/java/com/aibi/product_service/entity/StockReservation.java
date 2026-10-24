@@ -38,6 +38,14 @@ public class StockReservation {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "released_at")
+    private LocalDateTime releasedAt;
+
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

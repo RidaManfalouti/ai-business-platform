@@ -234,7 +234,22 @@ jobs:
             -H "Authorization: Bearer $ADMIN_TOKEN")
           [ "$ADMIN_DEL_CODE" -eq 204 ] || { echo "Expected 204, got $ADMIN_DEL_CODE"; exit 1; }
 
-          echo "Smoke test passed successfully with RBAC enforcement!"
+          echo "--- 13. Verify Normal User Forbidden from Saga Admin Endpoints (403) ---"
+          FORBIDDEN_SAGA_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/api/sales/sagas" \
+            -H "Authorization: Bearer $TOKEN")
+          [ "$FORBIDDEN_SAGA_CODE" -eq 403 ] || { echo "Expected 403 for user saga list, got $FORBIDDEN_SAGA_CODE"; exit 1; }
+
+          echo "--- 14. Verify Admin Can Query Durable Saga History (200) ---"
+          SAGAS_RES=$(curl -s -H "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:8080/api/sales/sagas")
+          SAGAS_COUNT=$(echo "$SAGAS_RES" | python3 -c "import sys, json; print(len(json.load(sys.stdin)))")
+          [ "$SAGAS_COUNT" -ge 1 ] || { echo "Expected at least 1 persisted saga, got $SAGAS_COUNT"; exit 1; }
+
+          echo "--- 15. Verify Admin Triggers Stock Reconciliation Audit (200) ---"
+          RECON_RES=$(curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:8080/api/sales/reconciliation/run")
+          DISCREPANCIES=$(echo "$RECON_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['discrepanciesCount'])")
+          [ "$DISCREPANCIES" -eq 0 ] || { echo "Expected 0 discrepancies, got $DISCREPANCIES"; exit 1; }
+
+          echo "Smoke test passed successfully with RBAC enforcement and durable Saga validation!"
 
       - name: Teardown Docker Compose
         if: always()

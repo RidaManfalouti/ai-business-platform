@@ -1,0 +1,8 @@
+package com.aibi.sales_service.reconciliation.model;
+
+public enum DiscrepancyType {
+    CANCELLED_SALE_RESERVATION_STILL_RESERVED,
+    SAGA_REQUIRES_MANUAL_ATTENTION,
+    STALE_UNFINISHED_COMPENSATION,
+    COMPENSATED_SAGA_RESERVATION_ACTIVE
+}

@@ -69,4 +69,18 @@ public class StockReservationController {
         StockReservationResponse response = reservationService.getReservation(reservationId);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/stale")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Lister les réservations de stock obsolètes (réconciliation)",
+            description = "Retourne les réservations actives (RESERVED) créées il y a plus de N minutes pour les audits de réconciliation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste des réservations obsolètes"),
+            @ApiResponse(responseCode = "403", description = "Accès restreint à ROLE_ADMIN")
+    })
+    public ResponseEntity<java.util.List<StockReservationResponse>> getStaleReservations(
+            @Parameter(description = "Âge minimum en minutes pour qualifier une réservation d'obsolète", example = "30")
+            @RequestParam(defaultValue = "30") int minutes) {
+        return ResponseEntity.ok(reservationService.getStaleReservations(minutes));
+    }
 }

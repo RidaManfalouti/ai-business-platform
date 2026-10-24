@@ -114,6 +114,29 @@ public class ProductServiceClient {
         }
     }
 
+    public StockReservationResponse getReservation(String reservationId) {
+        if (reservationId == null || reservationId.isBlank()) {
+            return null;
+        }
+
+        try {
+            return restClient.get()
+                    .uri("/api/products/reservations/{reservationId}", reservationId)
+                    .retrieve()
+                    .body(StockReservationResponse.class);
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 404) {
+                log.debug("Réservation {} non trouvée (404) dans Product Service.", reservationId);
+                return null;
+            }
+            log.warn("Erreur HTTP lors de la consultation de la réservation {} : {}", reservationId, ex.getMessage());
+            return null;
+        } catch (Exception ex) {
+            log.warn("Erreur inattendue lors de la consultation de la réservation {} : {}", reservationId, ex.getMessage());
+            return null;
+        }
+    }
+
     public ProductDto getProductById(Long productId) {
         if (productId == null) {
             throw new IllegalArgumentException("L'identifiant du produit ne peut être nul.");
