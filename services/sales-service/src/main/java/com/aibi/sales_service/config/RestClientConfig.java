@@ -59,6 +59,13 @@ public class RestClientConfig {
 
     private ClientHttpRequestInterceptor authHeaderForwardingInterceptor() {
         return (request, body, execution) -> {
+            // Propagation systématique de l'identifiant de corrélation
+            String correlationId = org.slf4j.MDC.get("correlationId");
+            if (correlationId == null || correlationId.isBlank()) {
+                correlationId = java.util.UUID.randomUUID().toString();
+            }
+            request.getHeaders().set("X-Correlation-ID", correlationId);
+
             RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
             if (attributes instanceof ServletRequestAttributes servletAttributes) {
                 String authHeader = servletAttributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);

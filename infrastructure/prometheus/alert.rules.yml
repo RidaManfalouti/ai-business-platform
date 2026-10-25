@@ -1,0 +1,67 @@
+groups:
+  - name: platform-availability-and-performance
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Microservice indisponible : {{ $labels.job }}"
+          description: "L'instance {{ $labels.instance }} du service {{ $labels.job }} ne répond plus depuis plus d'une minute."
+
+      - alert: HighHttpErrorRate
+        expr: (sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (application) / sum(rate(http_server_requests_seconds_count[5m])) by (application)) * 100 > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taux élevé d'erreurs 5xx sur {{ $labels.application }}"
+          description: "Plus de 5% des requêtes HTTP échouent en statut 5xx sur {{ $labels.application }} au cours des 5 dernières minutes (actuel: {{ $value | printf \"%.2f\" }}%)."
+
+      - alert: HighHttpLatency
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, application)) > 2
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence HTTP excessive sur {{ $labels.application }}"
+          description: "Le 95e percentile de latence (p95) dépasse 2 secondes sur {{ $labels.application }} depuis plus de 3 minutes (actuel: {{ $value | printf \"%.2f\" }}s)."
+
+  - name: saga-and-reconciliation-reliability
+    rules:
+      - alert: SagasRequiresManualAttention
+        expr: saga_status_count{status="FAILED_REQUIRES_ATTENTION"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sagas en échec nécessitant une intervention manuelle"
+          description: "{{ $value }} Saga(s) ont épuisé leurs tentatives de reprise et sont dans l'état FAILED_REQUIRES_ATTENTION."
+
+      - alert: PendingCompensationsStuck
+        expr: saga_stuck_operations_max_age_seconds{type="compensation"} > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Compensation de Saga bloquée"
+          description: "Une ou plusieurs compensations de Saga sont en attente depuis plus de 5 minutes sans aboutir (âge max: {{ $value }}s)."
+
+      - alert: StockReconciliationAnomaliesUnresolved
+        expr: stock_reconciliation_discrepancies_total > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Anomalies de réconciliation de stock détectées"
+          description: "{{ $value }} divergence(s) entre les ventes et les réservations de stock ont été identifiées lors de l'audit de réconciliation."
+
+      - alert: ProductServiceCommunicationErrorsHigh
+        expr: sum(rate(product_service_client_errors_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Erreurs de communication récurrentes avec product-service"
+          description: "Le client ProductServiceClient de sales-service rencontre des erreurs réseau ou timeouts persistants (taux: {{ $value | printf \"%.2f\" }} err/s)."

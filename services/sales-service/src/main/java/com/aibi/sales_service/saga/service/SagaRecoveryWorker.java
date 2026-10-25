@@ -22,6 +22,7 @@ public class SagaRecoveryWorker {
     private final SagaRepository sagaRepository;
     private final SagaService sagaService;
     private final ProductServiceClient productServiceClient;
+    private final com.aibi.sales_service.saga.observability.SagaMetrics sagaMetrics;
     private final Random random = new Random();
 
     @Value("${saga.recovery.enabled:true}")
@@ -42,12 +43,24 @@ public class SagaRecoveryWorker {
     @Value("${saga.recovery.batch-size:10}")
     private int batchSize;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    public SagaRecoveryWorker(SagaRepository sagaRepository,
+                              SagaService sagaService,
+                              ProductServiceClient productServiceClient,
+                              org.springframework.beans.factory.ObjectProvider<com.aibi.sales_service.saga.observability.SagaMetrics> sagaMetricsProvider) {
+        this.sagaRepository = sagaRepository;
+        this.sagaService = sagaService;
+        this.productServiceClient = productServiceClient;
+        this.sagaMetrics = sagaMetricsProvider != null ? sagaMetricsProvider.getIfAvailable() : null;
+    }
+
     public SagaRecoveryWorker(SagaRepository sagaRepository,
                               SagaService sagaService,
                               ProductServiceClient productServiceClient) {
         this.sagaRepository = sagaRepository;
         this.sagaService = sagaService;
         this.productServiceClient = productServiceClient;
+        this.sagaMetrics = null;
     }
 
     @Scheduled(fixedDelayString = "${saga.recovery.interval-ms:5000}")
@@ -107,6 +120,9 @@ public class SagaRecoveryWorker {
             StockReleaseResponse response = productServiceClient.releaseStock(reservationId);
             log.info("Compensation réussie pour Saga {} : {}", saga.getSagaId(), response != null ? response.message() : "OK");
             sagaService.recordCompensationAttempt(saga.getSagaId(), true, null, null);
+            if (sagaMetrics != null) {
+                sagaMetrics.recordRecoveryAttempt(true);
+            }
         } catch (Exception ex) {
             String errorMsg = ex.getMessage();
             int currentAttempt = saga.getAttemptCount() + 1;
@@ -116,6 +132,9 @@ public class SagaRecoveryWorker {
                     saga.getSagaId(), errorMsg, nextRetry);
 
             sagaService.recordCompensationAttempt(saga.getSagaId(), false, errorMsg, nextRetry);
+            if (sagaMetrics != null) {
+                sagaMetrics.recordRecoveryAttempt(false);
+            }
         }
     }
 
