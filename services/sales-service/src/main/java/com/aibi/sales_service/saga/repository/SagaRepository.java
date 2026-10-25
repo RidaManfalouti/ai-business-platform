@@ -47,4 +47,16 @@ public interface SagaRepository extends JpaRepository<Saga, Long> {
      */
     @Query("SELECT s FROM Saga s WHERE s.status IN :statuses AND s.createdAt < :threshold")
     List<Saga> findStaleSagas(@Param("statuses") Collection<SagaStatus> statuses, @Param("threshold") LocalDateTime threshold);
+
+    /**
+     * Retourne la date de création de la plus ancienne saga en cours ou en attente de compensation.
+     */
+    @Query("SELECT MIN(s.createdAt) FROM Saga s WHERE s.status IN ('COMPENSATION_PENDING', 'COMPENSATING')")
+    Optional<LocalDateTime> findOldestStuckCompensationCreatedAt();
+
+    /**
+     * Retourne la date de création de la plus ancienne saga non terminée en phase d'exécution.
+     */
+    @Query("SELECT MIN(s.createdAt) FROM Saga s WHERE s.status IN ('STARTED', 'STOCK_RESERVED', 'SALE_PERSISTED')")
+    Optional<LocalDateTime> findOldestPendingOperationCreatedAt();
 }

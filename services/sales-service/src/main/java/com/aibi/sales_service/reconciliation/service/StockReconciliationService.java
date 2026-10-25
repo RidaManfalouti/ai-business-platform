@@ -33,6 +33,7 @@ public class StockReconciliationService {
     private final SaleRepository saleRepository;
     private final SagaRepository sagaRepository;
     private final ProductServiceClient productServiceClient;
+    private final io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     private final AtomicReference<ReconciliationReport> latestReport = new AtomicReference<>();
 
@@ -42,12 +43,24 @@ public class StockReconciliationService {
     @Value("${saga.reconciliation.stale-threshold-minutes:15}")
     private int staleThresholdMinutes;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    public StockReconciliationService(SaleRepository saleRepository,
+                                      SagaRepository sagaRepository,
+                                      ProductServiceClient productServiceClient,
+                                      org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider) {
+        this.saleRepository = saleRepository;
+        this.sagaRepository = sagaRepository;
+        this.productServiceClient = productServiceClient;
+        this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+    }
+
     public StockReconciliationService(SaleRepository saleRepository,
                                       SagaRepository sagaRepository,
                                       ProductServiceClient productServiceClient) {
         this.saleRepository = saleRepository;
         this.sagaRepository = sagaRepository;
         this.productServiceClient = productServiceClient;
+        this.meterRegistry = null;
     }
 
     @Scheduled(fixedDelayString = "${saga.reconciliation.interval-ms:60000}")
@@ -142,6 +155,11 @@ public class StockReconciliationService {
         );
 
         latestReport.set(report);
+        if (meterRegistry != null) {
+            meterRegistry.counter("stock_reconciliation_runs_total",
+                    "result", discrepancies.isEmpty() ? "clean" : "discrepancies"
+            ).increment();
+        }
         if (discrepancies.isEmpty()) {
             log.info("Rapport de réconciliation de stock : 0 anomalie détectée (audit conforme).");
         } else {

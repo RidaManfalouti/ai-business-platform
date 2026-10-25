@@ -23,9 +23,27 @@ public class ProductServiceClient {
 
     private static final Logger log = LoggerFactory.getLogger(ProductServiceClient.class);
     private final RestClient restClient;
+    private final io.micrometer.core.instrument.MeterRegistry meterRegistry;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ProductServiceClient(@Qualifier("productRestClient") RestClient restClient,
+                                org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider) {
+        this.restClient = restClient;
+        this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+    }
 
     public ProductServiceClient(@Qualifier("productRestClient") RestClient restClient) {
         this.restClient = restClient;
+        this.meterRegistry = null;
+    }
+
+    private void recordError(String operation, String errorType) {
+        if (meterRegistry != null) {
+            meterRegistry.counter("product_service_client_errors_total",
+                    "operation", operation,
+                    "error_type", errorType
+            ).increment();
+        }
     }
 
     public StockReservationResponse reserveStock(StockReservationRequest request) {
@@ -47,6 +65,7 @@ public class ProductServiceClient {
                         throw new InsufficientStockException("Stock insuffisant pour satisfaire la commande : " + bodyStr);
                     })
                     .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                        recordError("reserve", "server_error");
                         throw new RemoteServiceUnavailableException(
                                 "Le service des produits est temporairement indisponible lors de la réservation de stock.",
                                 HttpStatus.BAD_GATEWAY
@@ -56,18 +75,21 @@ public class ProductServiceClient {
         } catch (ProductNotFoundException | InsufficientStockException | RemoteServiceUnavailableException ex) {
             throw ex;
         } catch (ResourceAccessException ex) {
+            recordError("reserve", "timeout");
             log.error("Délai d'attente dépassé ou indisponibilité réseau lors de la réservation de stock pour {} : {}", request.reservationId(), ex.getMessage());
             throw new RemoteServiceUnavailableException(
                     "Impossible de contacter le service des produits (délai d'attente dépassé ou indisponibilité réseau).",
                     HttpStatus.SERVICE_UNAVAILABLE
             );
         } catch (RestClientResponseException ex) {
+            recordError("reserve", "http_error");
             log.error("Erreur HTTP reçue du Product Service ({}) lors de la réservation {} : {}", ex.getStatusCode(), request.reservationId(), ex.getMessage());
             throw new RemoteServiceUnavailableException(
                     "Erreur de communication avec le service des produits lors de la réservation.",
                     HttpStatus.BAD_GATEWAY
             );
         } catch (Exception ex) {
+            recordError("reserve", "unexpected");
             log.error("Erreur inattendue lors de la réservation de stock pour {} : {}", request.reservationId(), ex.getMessage());
             throw new RemoteServiceUnavailableException(
                     "Erreur inattendue lors de la réservation de stock.",
@@ -90,6 +112,7 @@ public class ProductServiceClient {
                         log.warn("Réservation {} introuvable pour libération dans Product Service.", reservationId);
                     })
                     .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                        recordError("release", "server_error");
                         log.error("Erreur serveur reçue de Product Service lors de la libération de la réservation {}", reservationId);
                         throw new RemoteServiceUnavailableException(
                                 "Le service des produits est temporairement indisponible lors de la libération de stock.",
@@ -100,12 +123,14 @@ public class ProductServiceClient {
         } catch (RemoteServiceUnavailableException ex) {
             throw ex;
         } catch (ResourceAccessException ex) {
+            recordError("release", "timeout");
             log.error("Délai d'attente dépassé lors de la libération de stock pour {} : {}", reservationId, ex.getMessage());
             throw new RemoteServiceUnavailableException(
                     "Impossible de contacter le service des produits pour libérer le stock.",
                     HttpStatus.SERVICE_UNAVAILABLE
             );
         } catch (Exception ex) {
+            recordError("release", "unexpected");
             log.error("Erreur inattendue lors de la libération de stock pour {} : {}", reservationId, ex.getMessage());
             throw new RemoteServiceUnavailableException(
                     "Erreur inattendue lors de la libération de stock.",

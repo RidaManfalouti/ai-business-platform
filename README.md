@@ -10,15 +10,19 @@ La plateforme est articulée autour des microservices suivants :
 
 | Service | Port Interne | Port Externe | Description |
 | :--- | :--- | :--- | :--- |
-| **API Gateway** | `8080` | `8080` | Point d'entrée unique (Spring Cloud Gateway WebFlux), routage, CORS, reverse proxy |
+| **API Gateway** | `8080` | `8080` | Point d'entrée unique (Spring Cloud Gateway WebFlux), routage, corrélation distribuée, CORS |
 | **Auth Service** | `8081` | *Interne* | Gestion des comptes utilisateurs et émission des tokens JWT HMAC-SHA256 |
 | **Customer Service** | `8083` | *Interne* | Gestion de la relation client (CRM) et coordonnées des entreprises |
 | **Product Service** | `8082` | *Interne* | Catalogue de produits, inventaire et **réservations atomiques de stock** |
 | **Sales Service** | `8084` | *Interne* | Commandes clients, recalcul serveur, **idempotence** et **Saga compensatoire** |
 | **PostgreSQL** | `5432` | `5433` | Base relationnelle multi-bases (`auth_db`, `customer_db`, `product_db`, `sales_db`) |
 | **Redis** | `6379` | `6379` | Cache distribué et sessions |
+| **Prometheus** | `9090` | `9090` | Collecteur de métriques Actuator & TSDB, évaluation des alertes |
+| **Grafana** | `3000` | `3000` | Tableaux de bord unifiés (Platform, Services, Saga Reliability, Stock Reconciliation) |
+| **Grafana Loki** | `3100` | `3100` | Moteur d'indexation et agrégation de logs des conteneurs |
+| **Grafana Alloy** | `12345` | `12345` | Collecteur de logs conteneurs via Docker socket et relabellisation |
 
-> **Sécurité réseau :** Seul le service **API Gateway** expose son port HTTP sur la machine hôte (`8080`). Les microservices métier communiquent de manière isolée via le réseau interne Docker Compose par leurs noms de service DNS (`http://auth-service:8081`, `http://product-service:8082`, etc.).
+> **Sécurité réseau :** Seuls les services **API Gateway** (`8080`), **Grafana** (`3000`), **Prometheus** (`9090`), **Loki** (`3100`) et **Alloy** (`12345`) exposent des ports de consultation sur l'hôte en environnement local. Les microservices métier communiquent de manière isolée via le réseau interne Docker Compose par leurs noms de service DNS (`http://auth-service:8081`, `http://product-service:8082`, etc.).
 
 ---
 
@@ -590,4 +594,200 @@ curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
 | `SAGA_RECONCILIATION_ENABLED` | `true` | Active ou suspend le job planifié d'audit de réconciliation |
 | `SAGA_RECONCILIATION_INTERVAL_MS` | `60000` | Intervalle entre chaque audit automatique (ms) |
 | `SAGA_RECONCILIATION_STALE_MINUTES`| `15` | Seuil d'âge (en minutes) pour considérer une réservation comme bloquée |
+
+---
+
+## 12. Stack d'Observabilité Complète (Prometheus, Grafana, Loki, Grafana Alloy)
+
+La plateforme intègre une stack d'observabilité complète de classe entreprise permettant la collecte des métriques en temps réel, l'agrégation des logs de conteneurs, le traçage distribué par corrélation (`X-Correlation-ID`) et l'alerting proactif.
+
+### 12.1. Architecture d'Observabilité
+
+```mermaid
+flowchart TD
+    subgraph Clients
+        User["Client Web / Mobile / CLI"]
+    end
+
+    subgraph Edge
+        Gateway["api-gateway :8080\n(Génération & Validation X-Correlation-ID)"]
+    end
+
+    subgraph Microservices ["Microservices Métier (Spring Boot Actuator)"]
+        Auth["auth-service :8081\n(MDC, Actuator)"]
+        Product["product-service :8082\n(MDC, Actuator, Réservations)"]
+        Customer["customer-service :8083\n(MDC, Actuator)"]
+        Sales["sales-service :8084\n(MDC, Actuator, Saga Metrics)"]
+    end
+
+    subgraph ObservabilityStack ["Stack d'Observabilité"]
+        Prometheus["Prometheus :9090\n(Scraping /actuator/prometheus & Alerting)"]
+        Alloy["Grafana Alloy :12345\n(Collecte logs Docker socket)"]
+        Loki["Grafana Loki :3100\n(Stockage logs indexés)"]
+        Grafana["Grafana :3000\n(Visualisation & Dashboards)"]
+    end
+
+    User -->|HTTP Request| Gateway
+    Gateway -->|X-Correlation-ID| Auth
+    Gateway -->|X-Correlation-ID| Product
+    Gateway -->|X-Correlation-ID| Customer
+    Gateway -->|X-Correlation-ID| Sales
+    Sales -->|X-Correlation-ID inter-service| Product
+
+    Prometheus -->|Scrape /actuator/prometheus| Gateway
+    Prometheus -->|Scrape /actuator/prometheus| Auth
+    Prometheus -->|Scrape /actuator/prometheus| Product
+    Prometheus -->|Scrape /actuator/prometheus| Customer
+    Prometheus -->|Scrape /actuator/prometheus| Sales
+
+    DockerSock["/var/run/docker.sock"] --> Alloy
+    Alloy -->|Push logs standardisés| Loki
+
+    Prometheus -->|Data Source| Grafana
+    Loki -->|Data Source| Grafana
+```
+
+### 12.2. URLs et Accès Locaux
+
+| Service / Interface | URL Locale | Identifiants par défaut | Description |
+| :--- | :--- | :--- | :--- |
+| **Grafana Web UI** | `http://localhost:3000` | `admin` / `${GRAFANA_ADMIN_PASSWORD:-admin}` | Tableaux de bord unifiés et exploration LogQL |
+| **Prometheus Web UI** | `http://localhost:9090` | Accès direct (local) | Exploration PromQL, état des cibles et alertes actives |
+| **Loki Readiness** | `http://localhost:3100/ready` | Accès direct | Vérification de l'état du moteur Loki |
+| **Grafana Alloy UI** | `http://localhost:12345` | Accès direct | Visualisation des pipelines de collecte de logs |
+| **API Gateway Health** | `http://localhost:8080/actuator/health` | Public | Sonde de santé globale (liveness & readiness) |
+| **API Gateway Metrics**| `http://localhost:8080/actuator/prometheus` | Public | Métriques Prometheus de la passerelle |
+
+### 12.3. Dashboards Grafana Provisionnés Automatiquement
+
+Les 4 tableaux de bord sont stockés dans `infrastructure/grafana/dashboards/` et provisionnés automatiquement au démarrage du conteneur Grafana sans configuration manuelle :
+
+1. **Platform Overview (`platform-overview.json`) :**
+   - **Disponibilité globale** : indicateurs de santé instantanée (`up{job=~".*-service|api-gateway"}`).
+   - **Trafic & Débit (RPS)** : requêtes par seconde agrégées par code statut HTTP (`2xx`, `4xx`, `5xx`).
+   - **Taux d'erreur 5xx** : ratio d'échec serveur en pourcentage.
+   - **Latence HTTP** : latence moyenne, percentiles P95 et P99 via `http_server_requests_seconds`.
+   - **Ressources JVM** : consommation mémoire Heap vs Non-Heap, utilisation CPU du système et du processus, pauses Garbage Collector.
+   - **Pools de Connexions** : connexions actives HikariCP et temps d'attente d'acquisition.
+
+2. **Microservices Performance (`microservices.json`) :**
+   - Comparaison croisée des 5 services (`api-gateway`, `auth-service`, `product-service`, `customer-service`, `sales-service`).
+   - Débit de requêtes ventilé par méthode HTTP et URI.
+   - Latence P95 par microservice.
+   - Distribution fine des statuts HTTP.
+   - Charge CPU et mémoire comparée.
+
+3. **Sales & Saga Reliability (`sales-saga-reliability.json`) :**
+   - **États des Sagas en temps réel** : jauge `saga_status_count{status="..."}` ventilée par état (`STARTED`, `STOCK_RESERVED`, `SALE_PERSISTED`, `COMPLETED`, `COMPENSATION_PENDING`, `COMPENSATING`, `COMPENSATED`, `FAILED_REQUIRES_ATTENTION`).
+   - **Indicateur critique** : nombre de Sagas en statut `FAILED_REQUIRES_ATTENTION`.
+   - **Compensations en attente** : total des compensations actives nécessitant libération de stock.
+   - **Ancienneté maximale des opérations bloquées** : jauge `saga_stuck_operations_max_age_seconds` indiquant l'âge en secondes de la plus ancienne opération en souffrance.
+   - **Reprise automatique** : fréquence d'exécution et réessais du `SagaRecoveryWorker`.
+   - **Fiabilité interservice** : compteur `interservice_client_requests_errors_total{client="product-service"}` mesurant les échecs de communication réseau.
+
+4. **Stock Reconciliation (`stock-reconciliation.json`) :**
+   - **Anomalies actives détectées** : jauge `stock_reconciliation_anomalies_count`.
+   - **Total cumulé d'écarts** : compteur `stock_reconciliation_discrepancies_total`.
+   - **Historique et tendances** : suivi de l'apparition et de la résolution des incohérences détectées par l'audit planifié.
+
+### 12.4. Règles d'Alerting Prometheus
+
+Les règles d'alerte sont configurées dans `infrastructure/prometheus/alert.rules.yml` et évaluées toutes les 15 secondes :
+
+| Alerte | Sévérité | Condition PromQL | Seuil & Durée | Description & Action |
+| :--- | :--- | :--- | :--- | :--- |
+| **ServiceDown** | `critical` | `up == 0` | 1 minute | Une instance de service ne répond plus au scrape Prometheus. |
+| **HighHttpErrorRate** | `critical` | Erreurs 5xx > 5% du trafic total | 2 minutes | Défaillance applicative ou panne de dépendance critique. |
+| **HighHttpLatency** | `warning` | Latence P95 > 2 secondes | 5 minutes | Dégradation notable des performances ou contention base de données. |
+| **SagasRequiringAttention** | `critical` | `saga_status_count{status="FAILED_REQUIRES_ATTENTION"} > 0` | 1 minute | Une Saga a épuisé tous ses réessais automatiques. Intervention manuelle requise. |
+| **CompensationPendingStale** | `warning` | `saga_status_count{status="COMPENSATION_PENDING"} > 0` | 5 minutes | Des compensations de stock tardent à s'exécuter. Vérifier `sales-service` et `product-service`. |
+| **SagaOperationsStuckTooLong** | `warning` | `saga_stuck_operations_max_age_seconds > 600` | 3 minutes | Une compensation ou opération est bloquée depuis plus de 10 minutes. |
+| **StockReconciliationAnomalies** | `warning` | `stock_reconciliation_anomalies_count > 0` | 5 minutes | Des écarts d'intégrité de stock non résolus ont été identifiés. |
+| **InterServiceCommunicationErrors** | `warning` | `rate(interservice_client_requests_errors_total[5m]) > 0` | 2 minutes | Pertes de communication réseau entre `sales-service` et `product-service`. |
+| **JvmMemoryPressure** | `warning` | Heap JVM > 85% de la mémoire max | 5 minutes | Consommation mémoire excessive. Risque de `OutOfMemoryError`. |
+
+### 12.5. Corrélation Distribuée (`X-Correlation-ID`)
+
+Pour tracer une requête métier d'un bout à l'autre de l'architecture microservices :
+
+1. **Génération & Validation à la passerelle (`api-gateway`) :**
+   - Le filtre réactif `CorrelationIdFilter` inspecte l'en-tête entrant `X-Correlation-ID`.
+   - Si l'en-tête est absent, vide ou ne correspond pas au motif sécurisé strict `^[a-zA-Z0-9_-]{8,64}$`, un nouvel UUID v4 est généré.
+   - Les valeurs malformées ou suspectes sont rejetées pour prévenir les injections de logs (*Log Injection / CRLF*).
+   - L'identifiant validé est injecté dans la requête transmise aux services avals et réémis dans la réponse HTTP retournée au client.
+
+2. **Propagation dans les microservices et format de log :**
+   - Un filtre de servlet standard extrait l'en-tête `X-Correlation-ID` et l'inscrit dans le MDC SLF4J sous la clé `correlationId`.
+   - Le format de log unifié console de chaque service inclut la trace :
+     ```text
+     2026-10-25 14:30:15.123  INFO [sales-service,a1b2c3d4-e5f6-7890-abcd-ef0123456789] [http-nio-8084-exec-1] c.a.s.s.s.SalesService : Création de commande
+     ```
+   - Lors d'appels interservices sortants (ex: `sales-service` vers `product-service`), `RestClientConfig` propage automatiquement `X-Correlation-ID` à la requête descendante.
+   - En fin de traitement de requête, le filtre vide systématiquement le MDC dans un bloc `finally` pour éviter toute pollution entre threads du pool.
+
+### 12.6. Collecte et Recherche de Logs avec Loki & Grafana Alloy
+
+- **Grafana Alloy** lit en continu les flux de logs via `/var/run/docker.sock`, extrait les métadonnées Docker (`service`, `container`, `compose_service`, `stream`) et expédie les flux vers Loki.
+- **Exemples de requêtes LogQL dans Grafana Explore :**
+  ```logql
+  # Filtrer les logs d'un service spécifique
+  {service="sales-service"}
+
+  # Rechercher toutes les erreurs sur l'ensemble de la plateforme
+  {compose_project="ai-business-platform"} |= "ERROR"
+
+  # Suivre le parcours distribué d'une requête via son Correlation ID
+  {compose_project="ai-business-platform"} |= "a1b2c3d4-e5f6-7890-abcd-ef0123456789"
+
+  # Suivre l'activité du worker de reprise des Sagas
+  {service="sales-service"} |= "SagaRecoveryWorker"
+  ```
+
+### 12.7. Commandes Utiles & Runbook Opérationnel
+
+#### Démarrage et arrêt de la stack :
+```bash
+# Démarrer l'ensemble de la plateforme et de l'observabilité
+docker compose up -d
+
+# Vérifier que les 11 conteneurs sont sains (healthy)
+docker compose ps
+
+# Arrêter la stack sans perte de données
+docker compose down
+```
+
+#### Diagnostic d'une alerte :
+```bash
+# 1. Vérifier les cibles Prometheus
+curl -s http://localhost:9090/api/v1/targets | jq .data.activeTargets[].labels
+
+# 2. Vérifier les alertes actives
+curl -s http://localhost:9090/api/v1/alerts | jq .data.alerts
+
+# 3. Récupérer les Sagas bloquées
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "http://localhost:8080/api/sales/sagas?status=FAILED_REQUIRES_ATTENTION" | jq .
+
+# 4. Forcer un audit immédiat de réconciliation
+curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "http://localhost:8080/api/sales/reconciliation/run?staleMinutes=15" | jq .
+```
+
+### 12.8. Précautions de Sécurité et Déploiement en Production
+
+1. **Isolation réseau des ports de monitoring :**
+   - Par défaut, les ports `9090` (Prometheus), `3100` (Loki) et `12345` (Alloy) sont accessibles localement pour le développement.
+   - En production, ne liez pas ces ports sur `0.0.0.0`. Utilisez un réseau privé d'administration (VPC / VPN) ou liez-les uniquement à `127.0.0.1` (`127.0.0.1:9090:9090`).
+2. **Protection des accès Grafana :**
+   - Modifiez systématiquement `GRAFANA_ADMIN_PASSWORD` dans `.env` avec une phrase de passe forte.
+   - Placez Grafana derrière un reverse proxy HTTPS (Nginx, Traefik, Cloudflare) avec terminaison TLS et certificats valides.
+3. **Protection des données sensibles dans les logs :**
+   - Les mots de passe, tokens JWT complets et secrets d'API ne doivent jamais être logués en clair.
+   - Les corps complets des requêtes HTTP ne sont pas journalisés par défaut.
+4. **Politique de rétention et stockage :**
+   - Prometheus : métriques conservées 15 jours avec un plafond de 10 Go (`--storage.tsdb.retention.time=15d --storage.tsdb.retention.size=10GB`).
+   - Loki : politique de rétention configurée à 168 heures (7 jours) avec compaction automatique.
+   - Les volumes `prometheus_data`, `grafana_data` et `loki_data` sont persistants et ne sont pas effacés lors d'un `docker compose down`.
+
 
