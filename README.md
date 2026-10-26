@@ -21,6 +21,7 @@ La plateforme est articulée autour des microservices suivants :
 | **Grafana** | `3000` | `3000` | Tableaux de bord unifiés (Platform, Services, Saga Reliability, Stock Reconciliation) |
 | **Grafana Loki** | `3100` | `3100` | Moteur d'indexation et agrégation de logs des conteneurs |
 | **Grafana Alloy** | `12345` | `12345` | Collecteur de logs conteneurs via Docker socket et relabellisation |
+| **Frontend (React)** | `5173` | `5173` | Interface utilisateur web (React 18, TypeScript, Tailwind, TanStack Query) |
 
 > **Sécurité réseau :** Seuls les services **API Gateway** (`8080`), **Grafana** (`3000`), **Prometheus** (`9090`), **Loki** (`3100`) et **Alloy** (`12345`) exposent des ports de consultation sur l'hôte en environnement local. Les microservices métier communiquent de manière isolée via le réseau interne Docker Compose par leurs noms de service DNS (`http://auth-service:8081`, `http://product-service:8082`, etc.).
 
@@ -29,7 +30,8 @@ La plateforme est articulée autour des microservices suivants :
 ## 2. Prérequis
 
 - **Docker** Engine 24+ et **Docker Compose** v2.20+
-- **Java 21** & **Maven 3.9+** (uniquement en cas de développement / exécution locale hors conteneur)
+- **Java 21** & **Maven 3.9+** (en cas de développement backend / tests locaux hors conteneur)
+- **Node.js 20+** & **npm 10+** (pour l'exécution et le développement du frontend React)
 
 ---
 
@@ -93,6 +95,33 @@ docker compose logs -f product-service
 ```bash
 curl http://localhost:8080/actuator/health
 ```
+
+---
+
+## 5. Démarrage du Frontend (React 18 & TypeScript)
+
+Le frontend se trouve dans le répertoire `frontend/` et communique avec la plateforme via la passerelle API (`http://localhost:8080`).
+
+### Installation et exécution en mode développement :
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+L'application est accessible à l'adresse : **`http://localhost:5173`**
+
+### Tests unitaires et vérification des types :
+
+```bash
+npm test          # Exécution des tests unitaires Vitest
+npm run typecheck  # Contrôle des types TypeScript
+npm run build      # Compilation de production
+```
+
+Pour plus de détails, consultez la documentation dédiée : [frontend/README.md](file:///home/rida/Projects/ai-business-platform/frontend/README.md).
 
 ---
 
