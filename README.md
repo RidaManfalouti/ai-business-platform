@@ -15,7 +15,8 @@ La plateforme est articulée autour des microservices suivants :
 | **Customer Service** | `8083` | *Interne* | Gestion de la relation client (CRM) et coordonnées des entreprises |
 | **Product Service** | `8082` | *Interne* | Catalogue de produits, inventaire et **réservations atomiques de stock** |
 | **Sales Service** | `8084` | *Interne* | Commandes clients, recalcul serveur, **idempotence** et **Saga compensatoire** |
-| **PostgreSQL** | `5432` | `5433` | Base relationnelle multi-bases (`auth_db`, `customer_db`, `product_db`, `sales_db`) |
+| **Analytics Service** | `8085` | *Interne* | Décisionnel, calcul des KPIs certifiés, tendances et alertes de stock faible |
+| **PostgreSQL** | `5432` | `5433` | Base relationnelle multi-bases (`auth_db`, `customer_db`, `product_db`, `sales_db`, `analytics_db`) |
 | **Redis** | `6379` | `6379` | Cache distribué et sessions |
 | **Prometheus** | `9090` | `9090` | Collecteur de métriques Actuator & TSDB, évaluation des alertes |
 | **Grafana** | `3000` | `3000` | Tableaux de bord unifiés (Platform, Services, Saga Reliability, Stock Reconciliation) |
@@ -372,6 +373,12 @@ Le modèle est minimal, explicite et sécurisé :
 | **sales-service** | `GET /api/sales` & `/api/sales/**` | `USER`, `ADMIN` | Consultation de l'historique des commandes |
 | **sales-service** | `POST /api/sales` | `USER`, `ADMIN` | Passation de commande avec réservation de stock |
 | **sales-service** | `POST /api/sales/{id}/cancel` | `USER`, `ADMIN` | Annulation de commande et déclenchement de la Saga compensatoire |
+| **analytics-service** | `GET /api/analytics/kpi` | `USER`, `ADMIN` | Consultation des KPIs consolidés (CA valide, volume, panier moyen) |
+| **analytics-service** | `GET /api/analytics/trends` | `USER`, `ADMIN` | Analyse des tendances quotidiennes de ventes et revenus |
+| **analytics-service** | `GET /api/analytics/top-products` | `USER`, `ADMIN` | Palmarès des articles les plus vendus sur commandes terminées |
+| **analytics-service** | `GET /api/analytics/status-distribution` | `USER`, `ADMIN` | Répartition statistique des commandes par statut |
+| **analytics-service** | `GET /api/analytics/low-stock` | `USER`, `ADMIN` | Alertes de réapprovisionnement et stocks faibles |
+| **analytics-service** | `GET /api/analytics/dashboard` | `USER`, `ADMIN` | Synthèse décisionnelle consolidée pour le tableau de bord |
 
 > **Propagation du Jeton Bearer :**
 > Lors de la création ou de l'annulation d'une vente, `sales-service` relaie de manière transparente l'en-tête `Authorization: Bearer <token>` du client aux services `product-service` et `customer-service` via un intercepteur `RestClient`. Comme les endpoints de réservation et de vérification client autorisent `USER` et `ADMIN`, le flux commercial s'exécute sans friction avec l'identité de l'utilisateur initiateur.

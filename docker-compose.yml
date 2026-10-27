@@ -167,6 +167,42 @@ services:
       retries: 5
       start_period: 25s
 
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile
+    container_name: ai-platform-analytics-service
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: analytics_db
+      POSTGRES_USER: ${POSTGRES_USER:-ai_platform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      SALES_SERVICE_URL: http://sales-service:8084
+      PRODUCT_SERVICE_URL: http://product-service:8082
+      CUSTOMER_SERVICE_URL: http://customer-service:8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+      sales-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      customer-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:8085/actuator/health || exit 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
   api-gateway:
     build:
       context: ./services/api-gateway
@@ -180,6 +216,7 @@ services:
       CUSTOMER_SERVICE_URL: http://customer-service:8083
       PRODUCT_SERVICE_URL: http://product-service:8082
       SALES_SERVICE_URL: http://sales-service:8084
+      ANALYTICS_SERVICE_URL: http://analytics-service:8085
     depends_on:
       auth-service:
         condition: service_healthy
@@ -188,6 +225,8 @@ services:
       product-service:
         condition: service_healthy
       sales-service:
+        condition: service_healthy
+      analytics-service:
         condition: service_healthy
     healthcheck:
       test:

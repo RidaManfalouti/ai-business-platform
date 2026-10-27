@@ -45,3 +45,10 @@ scrape_configs:
       - targets: ['sales-service:8084']
         labels:
           service: 'sales-service'
+
+  - job_name: 'analytics-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['analytics-service:8085']
+        labels:
+          service: 'analytics-service'

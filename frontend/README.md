@@ -158,6 +158,12 @@ npm run typecheck
 | **Résolution Saga** | `POST` | `/api/sales/sagas/{id}/resolve` | `ROLE_ADMIN` |
 | **Rapport Réconciliation** | `GET` | `/api/sales/reconciliation/latest`| `ROLE_ADMIN` |
 | **Lancement Réconciliation**| `POST` | `/api/sales/reconciliation/run` | `ROLE_ADMIN` |
+| **Dashboard Analytique**| `GET` | `/api/analytics/dashboard` | `ROLE_USER` |
+| **Indicateurs KPI** | `GET` | `/api/analytics/kpi` | `ROLE_USER` |
+| **Tendances Ventes & CA**| `GET` | `/api/analytics/trends` | `ROLE_USER` |
+| **Meilleures Ventes** | `GET` | `/api/analytics/top-products` | `ROLE_USER` |
+| **Distribution Statuts** | `GET` | `/api/analytics/status-distribution` | `ROLE_USER` |
+| **Alertes Stock Faible** | `GET` | `/api/analytics/low-stock` | `ROLE_USER` |
 
 ### Considérations de sécurité
 

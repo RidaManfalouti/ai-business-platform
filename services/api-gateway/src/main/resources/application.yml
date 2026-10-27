@@ -57,10 +57,13 @@ spring:
               predicates:
                 - Path=/api/sales, /api/sales/**
 
+            # ====================================================================
+            # Route : Analytics Service - Métriques et KPIs
+            # ====================================================================
             - id: analytics-service
-              uri: ${ANALYTICS_SERVICE_URL:forward:/fallback/service-unavailable}
+              uri: ${ANALYTICS_SERVICE_URL:http://localhost:8085}
               predicates:
-                - Path=/api/analytics/**
+                - Path=/api/analytics, /api/analytics/**
 
           globalcors:
             cors-configurations:

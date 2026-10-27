@@ -1,0 +1,83 @@
+server:
+  port: ${PORT:8085}
+
+spring:
+  application:
+    name: analytics-service
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:analytics_db}
+    username: ${POSTGRES_USER:ai_platform}
+    password: "${POSTGRES_PASSWORD:0000}"
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+management:
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [${spring.application.name:},%X{correlationId:-}] [%t] %-40.40logger{39} : %m%n"
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+jwt:
+  secret: ${JWT_SECRET}
+
+services:
+  sales-service:
+    url: ${SALES_SERVICE_URL:http://localhost:8084}
+    connect-timeout-ms: ${SALES_SERVICE_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${SALES_SERVICE_READ_TIMEOUT_MS:4000}
+  product-service:
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+    connect-timeout-ms: ${PRODUCT_SERVICE_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${PRODUCT_SERVICE_READ_TIMEOUT_MS:3000}
+  customer-service:
+    url: ${CUSTOMER_SERVICE_URL:http://localhost:8083}
+    connect-timeout-ms: ${CUSTOMER_SERVICE_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${CUSTOMER_SERVICE_READ_TIMEOUT_MS:3000}
+
+analytics:
+  currency: "EUR"
+  default-timezone: "UTC"
+  low-stock-threshold: 5

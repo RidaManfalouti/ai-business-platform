@@ -77,6 +77,7 @@ jobs:
           - product-service
           - customer-service
           - sales-service
+          - analytics-service
 
     steps:
       - name: Checkout Code
@@ -128,7 +129,7 @@ jobs:
           echo "INITIAL_ADMIN_PASSWORD=AdminPassword123!" >> .env
           docker compose config --quiet
 
-      - name: Build All 5 Docker Images
+      - name: Build All 6 Docker Images
         run: |
           docker compose build
 
@@ -137,8 +138,8 @@ jobs:
           docker compose up -d
           echo "Waiting for all containers to report healthy..."
           timeout 240s bash -c '
-            until [ "$(docker compose ps --filter "status=running" -q | wc -l)" -eq 11 ] && \
-                  [ "$(docker compose ps -a --format json | grep -c "\"Health\":\"healthy\"")" -eq 11 ]; do
+            until [ "$(docker compose ps --filter "status=running" -q | wc -l)" -eq 12 ] && \
+                  [ "$(docker compose ps -a --format json | grep -c "\"Health\":\"healthy\"")" -eq 12 ]; do
               echo "Waiting for healthy containers..."
               docker compose ps
               sleep 5
@@ -255,13 +256,19 @@ jobs:
           echo "Correlation response header: $CORR_RESP_HEADER"
           echo "$CORR_RESP_HEADER" | grep -i "$CORR_UUID" || { echo "Expected X-Correlation-ID: $CORR_UUID"; exit 1; }
 
-          echo "--- 17. Verify Prometheus Scrapes all 5 Microservices ---"
+          echo "--- 17. Verify Analytics Service through API Gateway ---"
+          ANALYTICS_RES=$(curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/analytics/kpi")
+          CURRENCY=$(echo "$ANALYTICS_RES" | python3 -c "import sys, json; print(json.load(sys.stdin).get('currency', ''))")
+          echo "Analytics currency: $CURRENCY"
+          [ "$CURRENCY" = "EUR" ] || { echo "Expected currency EUR, got $CURRENCY"; exit 1; }
+
+          echo "--- 18. Verify Prometheus Scrapes all 6 Microservices ---"
           TARGETS_RES=$(curl -s "http://localhost:9090/api/v1/targets")
           ACTIVE_TARGETS=$(echo "$TARGETS_RES" | python3 -c "import sys, json; targets = json.load(sys.stdin)['data']['activeTargets']; print(len([t for t in targets if t['health'] == 'up']))")
           echo "Healthy Prometheus active targets: $ACTIVE_TARGETS"
-          [ "$ACTIVE_TARGETS" -ge 5 ] || { echo "Expected at least 5 healthy scrape targets, got $ACTIVE_TARGETS"; exit 1; }
+          [ "$ACTIVE_TARGETS" -ge 6 ] || { echo "Expected at least 6 healthy scrape targets, got $ACTIVE_TARGETS"; exit 1; }
 
-          echo "--- 18. Verify Grafana Health and Provisioned Dashboards ---"
+          echo "--- 19. Verify Grafana Health and Provisioned Dashboards ---"
           GRAFANA_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/api/health")
           [ "$GRAFANA_HEALTH" -eq 200 ] || { echo "Expected Grafana 200, got $GRAFANA_HEALTH"; exit 1; }
           DASHBOARDS_RES=$(curl -s -u admin:admin "http://localhost:3000/api/search")
@@ -269,7 +276,7 @@ jobs:
           echo "Provisioned dashboards count: $DASHBOARDS_COUNT"
           [ "$DASHBOARDS_COUNT" -ge 4 ] || { echo "Expected at least 4 provisioned dashboards, got $DASHBOARDS_COUNT"; exit 1; }
 
-          echo "--- 19. Verify Loki Health and Log Ingestion Readiness ---"
+          echo "--- 20. Verify Loki Health and Log Ingestion Readiness ---"
           LOKI_READY=$(curl -s "http://localhost:3100/ready")
           [ "$LOKI_READY" = "ready" ] || { echo "Expected Loki ready, got $LOKI_READY"; exit 1; }
 
