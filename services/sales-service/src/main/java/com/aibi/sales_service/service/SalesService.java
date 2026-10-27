@@ -252,6 +252,72 @@ public class SalesService {
         return SaleResponse.fromEntity(updated);
     }
 
+    @Transactional(readOnly = true)
+    public SalesSummaryAggregateResponse getSummaryAggregate(LocalDateTime startDate, LocalDateTime endDate) {
+        BigDecimal totalRevenue = saleRepository.sumCompletedRevenue(startDate, endDate);
+        long completedSalesCount = saleRepository.countCompletedSales(startDate, endDate);
+        long totalSalesCount = saleRepository.countTotalSales(startDate, endDate);
+        return new SalesSummaryAggregateResponse(
+                totalRevenue != null ? totalRevenue : BigDecimal.ZERO,
+                completedSalesCount,
+                totalSalesCount
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<SalesStatusCountResponse> getStatusDistribution(LocalDateTime startDate, LocalDateTime endDate) {
+        List<Object[]> rawCounts = saleRepository.countByStatus(startDate, endDate);
+        Map<SaleStatus, Long> countsMap = new EnumMap<>(SaleStatus.class);
+        for (SaleStatus status : SaleStatus.values()) {
+            countsMap.put(status, 0L);
+        }
+        for (Object[] row : rawCounts) {
+            SaleStatus status = (SaleStatus) row[0];
+            Long count = ((Number) row[1]).longValue();
+            countsMap.put(status, count);
+        }
+        List<SalesStatusCountResponse> result = new ArrayList<>();
+        for (Map.Entry<SaleStatus, Long> entry : countsMap.entrySet()) {
+            result.add(new SalesStatusCountResponse(entry.getKey(), entry.getValue()));
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<DailyTrendResponse> getDailyTrends(LocalDateTime startDate, LocalDateTime endDate) {
+        List<Object[]> rows = saleRepository.getDailyTrendsNative(startDate, endDate);
+        List<DailyTrendResponse> trends = new ArrayList<>();
+        for (Object[] row : rows) {
+            LocalDate date;
+            if (row[0] instanceof java.sql.Date sqlDate) {
+                date = sqlDate.toLocalDate();
+            } else if (row[0] instanceof LocalDate localDate) {
+                date = localDate;
+            } else {
+                date = LocalDate.parse(row[0].toString());
+            }
+            long count = ((Number) row[1]).longValue();
+            BigDecimal revenue = (BigDecimal) row[2];
+            trends.add(new DailyTrendResponse(date, count, revenue != null ? revenue : BigDecimal.ZERO));
+        }
+        return trends;
+    }
+
+    @Transactional(readOnly = true)
+    public List<TopProductAggregateResponse> getTopProducts(LocalDateTime startDate, LocalDateTime endDate, int limit) {
+        int boundedLimit = Math.max(1, Math.min(limit, 100));
+        List<Object[]> rows = saleRepository.getTopProductsNative(startDate, endDate, boundedLimit);
+        List<TopProductAggregateResponse> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            Long productId = ((Number) row[0]).longValue();
+            String productName = (String) row[1];
+            long quantity = ((Number) row[2]).longValue();
+            BigDecimal revenue = (BigDecimal) row[3];
+            result.add(new TopProductAggregateResponse(productId, productName, quantity, revenue != null ? revenue : BigDecimal.ZERO));
+        }
+        return result;
+    }
+
     private String generateUniqueReference() {
         String datePrefix = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         String uuidPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();

@@ -1,0 +1,100 @@
+package com.aibi.analytics_service.config;
+
+import com.aibi.analytics_service.security.InternalTokenService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import java.time.Duration;
+
+@Configuration
+public class RestClientConfig {
+
+    private final InternalTokenService internalTokenService;
+
+    public RestClientConfig(InternalTokenService internalTokenService) {
+        this.internalTokenService = internalTokenService;
+    }
+
+    @Bean
+    public RestClient salesRestClient(
+            @Value("${services.sales-service.url:http://localhost:8084}") String baseUrl,
+            @Value("${services.sales-service.connect-timeout-ms:3000}") int connectTimeout,
+            @Value("${services.sales-service.read-timeout-ms:4000}") int readTimeout) {
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
+        factory.setReadTimeout(Duration.ofMillis(readTimeout));
+
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(factory)
+                .requestInterceptor(authHeaderForwardingInterceptor())
+                .build();
+    }
+
+    @Bean
+    public RestClient productRestClient(
+            @Value("${services.product-service.url:http://localhost:8082}") String baseUrl,
+            @Value("${services.product-service.connect-timeout-ms:3000}") int connectTimeout,
+            @Value("${services.product-service.read-timeout-ms:3000}") int readTimeout) {
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
+        factory.setReadTimeout(Duration.ofMillis(readTimeout));
+
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(factory)
+                .requestInterceptor(authHeaderForwardingInterceptor())
+                .build();
+    }
+
+    @Bean
+    public RestClient customerRestClient(
+            @Value("${services.customer-service.url:http://localhost:8083}") String baseUrl,
+            @Value("${services.customer-service.connect-timeout-ms:3000}") int connectTimeout,
+            @Value("${services.customer-service.read-timeout-ms:3000}") int readTimeout) {
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
+        factory.setReadTimeout(Duration.ofMillis(readTimeout));
+
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(factory)
+                .requestInterceptor(authHeaderForwardingInterceptor())
+                .build();
+    }
+
+    private ClientHttpRequestInterceptor authHeaderForwardingInterceptor() {
+        return (request, body, execution) -> {
+            String correlationId = org.slf4j.MDC.get("correlationId");
+            if (correlationId == null || correlationId.isBlank()) {
+                correlationId = java.util.UUID.randomUUID().toString();
+            }
+            request.getHeaders().set("X-Correlation-ID", correlationId);
+
+            RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+            if (attributes instanceof ServletRequestAttributes servletAttributes) {
+                String authHeader = servletAttributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
+                if (authHeader != null && !authHeader.isBlank()) {
+                    request.getHeaders().set(HttpHeaders.AUTHORIZATION, authHeader);
+                    return execution.execute(request, body);
+                }
+            }
+
+            // Fallback to internal service JWT if no user context is active
+            String internalToken = internalTokenService.getInternalServiceToken();
+            request.getHeaders().set(HttpHeaders.AUTHORIZATION, "Bearer " + internalToken);
+            return execution.execute(request, body);
+        };
+    }
+}

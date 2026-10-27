@@ -72,6 +72,10 @@ class GatewayRoutingTest {
                                 res.status(HttpResponseStatus.OK)
                                         .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                                         .sendString(Mono.just("{\"id\":1,\"reference\":\"SAL-TEST-001\"}")))
+                        .get("/api/analytics/kpi", (req, res) ->
+                                res.status(HttpResponseStatus.OK)
+                                        .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                                        .sendString(Mono.just("{\"totalRevenue\":10000.00,\"currency\":\"EUR\"}")))
                 )
                 .bindNow();
     }
@@ -89,6 +93,7 @@ class GatewayRoutingTest {
         registry.add("PRODUCT_SERVICE_URL", () -> "http://localhost:" + mockBackend.port());
         registry.add("CUSTOMER_SERVICE_URL", () -> "http://localhost:" + mockBackend.port());
         registry.add("SALES_SERVICE_URL", () -> "http://localhost:" + mockBackend.port());
+        registry.add("ANALYTICS_SERVICE_URL", () -> "http://localhost:" + mockBackend.port());
     }
 
     @Test
@@ -172,13 +177,15 @@ class GatewayRoutingTest {
     }
 
     @Test
-    @DisplayName("Vérifie que les services non encore implémentés renvoient 503 sans appel externe")
-    void shouldReturn503ForFutureServices() {
+    @DisplayName("Vérifie que la route /api/analytics/** est correctement relayée vers le Analytics Service")
+    void shouldRouteAnalyticsServiceSuccessfully() {
         webTestClient.get()
-                .uri("/api/analytics")
+                .uri("/api/analytics/kpi")
                 .exchange()
-                .expectStatus().isEqualTo(503)
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
                 .expectBody()
-                .jsonPath("$.error").isEqualTo("SERVICE_UNAVAILABLE");
+                .jsonPath("$.totalRevenue").isEqualTo(10000.00)
+                .jsonPath("$.currency").isEqualTo("EUR");
     }
 }
