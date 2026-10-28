@@ -73,9 +73,14 @@ spring:
                   - GET
                   - POST
                   - PUT
+                  - PATCH
                   - DELETE
                   - OPTIONS
+                  - HEAD
                 allowedHeaders: "*"
+
+app:
+  env: ${APP_ENV:development}
 
 management:
   endpoints:

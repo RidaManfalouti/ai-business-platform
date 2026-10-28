@@ -63,6 +63,9 @@ springdoc:
 jwt:
   secret: ${JWT_SECRET}
 
+app:
+  env: ${APP_ENV:development}
+
 services:
   product-service:
     url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
