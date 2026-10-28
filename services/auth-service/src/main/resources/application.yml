@@ -24,6 +24,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 app:
+  env: ${APP_ENV:development}
   security:
     initial-admin:
       enabled: ${INITIAL_ADMIN_ENABLED:false}

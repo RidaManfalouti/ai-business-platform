@@ -63,6 +63,9 @@ springdoc:
 jwt:
   secret: ${JWT_SECRET}
 
+app:
+  env: ${APP_ENV:development}
+
 services:
   sales-service:
     url: ${SALES_SERVICE_URL:http://localhost:8084}
@@ -78,6 +81,6 @@ services:
     read-timeout-ms: ${CUSTOMER_SERVICE_READ_TIMEOUT_MS:3000}
 
 analytics:
-  currency: "EUR"
-  default-timezone: "UTC"
-  low-stock-threshold: 5
+  currency: ${ANALYTICS_CURRENCY:EUR}
+  default-timezone: ${ANALYTICS_DEFAULT_TIMEZONE:UTC}
+  low-stock-threshold: ${ANALYTICS_LOW_STOCK_THRESHOLD:5}

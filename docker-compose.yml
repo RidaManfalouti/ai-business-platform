@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-ai_platform}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
@@ -29,7 +29,7 @@ services:
     container_name: ai-platform-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -45,6 +45,7 @@ services:
     container_name: ai-platform-auth-service
     restart: unless-stopped
     environment:
+      APP_ENV: ${APP_ENV:-development}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: auth_db
@@ -77,6 +78,7 @@ services:
     container_name: ai-platform-customer-service
     restart: unless-stopped
     environment:
+      APP_ENV: ${APP_ENV:-development}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: customer_db
@@ -104,6 +106,7 @@ services:
     container_name: ai-platform-product-service
     restart: unless-stopped
     environment:
+      APP_ENV: ${APP_ENV:-development}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: product_db
@@ -131,6 +134,7 @@ services:
     container_name: ai-platform-sales-service
     restart: unless-stopped
     environment:
+      APP_ENV: ${APP_ENV:-development}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: sales_db
@@ -174,6 +178,7 @@ services:
     container_name: ai-platform-analytics-service
     restart: unless-stopped
     environment:
+      APP_ENV: ${APP_ENV:-development}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: analytics_db
@@ -183,6 +188,9 @@ services:
       SALES_SERVICE_URL: http://sales-service:8084
       PRODUCT_SERVICE_URL: http://product-service:8082
       CUSTOMER_SERVICE_URL: http://customer-service:8083
+      ANALYTICS_CURRENCY: ${ANALYTICS_CURRENCY:-EUR}
+      ANALYTICS_DEFAULT_TIMEZONE: ${ANALYTICS_DEFAULT_TIMEZONE:-UTC}
+      ANALYTICS_LOW_STOCK_THRESHOLD: ${ANALYTICS_LOW_STOCK_THRESHOLD:-5}
     depends_on:
       postgres:
         condition: service_healthy
@@ -210,8 +218,9 @@ services:
     container_name: ai-platform-api-gateway
     restart: unless-stopped
     ports:
-      - "${GATEWAY_PORT:-8080}:8080"
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     environment:
+      APP_ENV: ${APP_ENV:-development}
       AUTH_SERVICE_URL: http://auth-service:8081
       CUSTOMER_SERVICE_URL: http://customer-service:8083
       PRODUCT_SERVICE_URL: http://product-service:8082
@@ -244,7 +253,7 @@ services:
     container_name: ai-platform-prometheus
     restart: unless-stopped
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infrastructure/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
@@ -270,7 +279,7 @@ services:
     container_name: ai-platform-loki
     restart: unless-stopped
     ports:
-      - "${LOKI_PORT:-3100}:3100"
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
     volumes:
       - ./infrastructure/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki_data:/loki
@@ -292,7 +301,7 @@ services:
     container_name: ai-platform-alloy
     restart: unless-stopped
     ports:
-      - "${ALLOY_PORT:-12345}:12345"
+      - "127.0.0.1:${ALLOY_PORT:-12345}:12345"
     volumes:
       - ./infrastructure/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -319,7 +328,7 @@ services:
     container_name: ai-platform-grafana
     restart: unless-stopped
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}

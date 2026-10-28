@@ -173,6 +173,13 @@ public class SalesService {
             return;
         }
 
+        // Protection critique : si la vente est déjà présente en base (ex: course concurrente gagnée par un autre thread),
+        // il ne faut en aucun cas libérer le stock de cette vente valide !
+        if (saleRepository.existsByReference(reference)) {
+            log.warn("La vente avec la référence {} existe déjà en base. Annulation de la libération du stock pour préserver la vente existante.", reference);
+            return;
+        }
+
         sagaService.transitionSaga(sagaId, SagaStatus.COMPENSATION_PENDING, "Échec persistance vente : " + errorReason);
 
         try {

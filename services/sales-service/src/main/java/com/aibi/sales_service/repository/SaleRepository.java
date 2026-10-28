@@ -20,6 +20,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     Optional<Sale> findByReference(String reference);
 
+    @Query("SELECT s FROM Sale s LEFT JOIN FETCH s.items WHERE s.reference = :reference")
+    Optional<Sale> findByReferenceWithItems(@Param("reference") String reference);
+
     @Query("SELECT s FROM Sale s LEFT JOIN FETCH s.items WHERE s.id = :id")
     Optional<Sale> findByIdWithItems(@Param("id") Long id);
 
