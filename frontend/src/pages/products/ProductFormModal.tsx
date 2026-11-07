@@ -14,10 +14,10 @@ const productSchema = z.object({
     .max(100, 'Le nom ne doit pas dépasser 100 caractères.'),
   description: z.string().max(1000, 'La description ne doit pas dépasser 1000 caractères.').optional(),
   price: z.coerce
-    .number({ invalid_type_error: 'Le prix doit être un nombre valide.' })
+    .number('Le prix doit être un nombre valide.')
     .min(0, 'Le prix doit être supérieur ou égal à zéro.'),
   stockQuantity: z.coerce
-    .number({ invalid_type_error: 'La quantité doit être un entier valide.' })
+    .number('La quantité doit être un entier valide.')
     .int('La quantité en stock doit être un entier.')
     .min(0, 'La quantité en stock ne peut pas être négative.'),
   category: z
