@@ -330,10 +330,13 @@ services:
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     environment:
+      APP_ENV: ${APP_ENV:-development}
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
+    entrypoint: ["/bin/bash", "/etc/grafana/entrypoint.sh"]
     volumes:
+      - ./infrastructure/grafana/entrypoint.sh:/etc/grafana/entrypoint.sh:ro
       - ./infrastructure/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./infrastructure/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./infrastructure/grafana/dashboards:/etc/grafana/dashboards:ro
