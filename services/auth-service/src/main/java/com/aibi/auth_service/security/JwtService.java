@@ -9,11 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class JwtService {
@@ -31,33 +27,89 @@ public class JwtService {
 
     public String generateToken(User user) {
         String roleStr = (user.getRole() != null) ? user.getRole().name() : "USER";
-        return generateToken(user.getEmail(), roleStr);
+        return generateToken(user.getEmail(), roleStr, user.getId(), null, null, null);
+    }
+
+    public String generateToken(User user, UUID tenantId, String tenantSlug, String tenantRole) {
+        String roleStr = (user.getRole() != null) ? user.getRole().name() : "USER";
+        return generateToken(user.getEmail(), roleStr, user.getId(), tenantId, tenantSlug, tenantRole);
     }
 
     public String generateToken(String email, String role) {
+        return generateToken(email, role, null, null, null, null);
+    }
+
+    public String generateToken(String email, String role, Long userId, UUID tenantId, String tenantSlug, String tenantRole) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
-        String normalizedRole = (role != null && !role.isBlank()) ? role.trim() : "USER";
-        if (!normalizedRole.startsWith("ROLE_")) {
-            normalizedRole = "ROLE_" + normalizedRole;
+        List<String> authorities = new ArrayList<>();
+        if (role != null && !role.isBlank()) {
+            String r = role.trim();
+            if (!r.startsWith("ROLE_")) {
+                r = "ROLE_" + r;
+            }
+            authorities.add(r);
+        }
+        if (authorities.isEmpty()) {
+            authorities.add("ROLE_USER");
         }
 
-        return Jwts.builder()
-                .subject(email)
-                .claim("roles", List.of(normalizedRole))
-                .issuedAt(now)
-                .expiration(expiryDate)
-                .signWith(getSigningKey())
-                .compact();
-    }
+        if (tenantRole != null && !tenantRole.isBlank()) {
+            String tr = tenantRole.trim().toUpperCase();
+            String normalizedRole = tr.startsWith("ROLE_") ? tr : "ROLE_" + tr;
+            if (!authorities.contains(normalizedRole)) {
+                authorities.add(normalizedRole);
+            }
+            String tenantPrefixed = "ROLE_TENANT_" + normalizedRole.replace("ROLE_", "");
+            if (!authorities.contains(tenantPrefixed)) {
+                authorities.add(tenantPrefixed);
+            }
+        }
 
-    public String generateToken(String email) {
-        return generateToken(email, "USER");
+        var builder = Jwts.builder()
+                .subject(email)
+                .claim("roles", authorities)
+                .issuedAt(now)
+                .expiration(expiryDate);
+
+        if (userId != null) {
+            builder.claim("user_id", userId);
+        }
+        if (tenantId != null) {
+            builder.claim("tenant_id", tenantId.toString());
+        }
+        if (tenantSlug != null) {
+            builder.claim("tenant_slug", tenantSlug);
+        }
+        if (tenantRole != null) {
+            builder.claim("tenant_role", tenantRole);
+        }
+
+        return builder.signWith(getSigningKey()).compact();
     }
 
     public String extractEmail(String token) {
         return getClaims(token).getSubject();
+    }
+
+    public UUID extractTenantId(String token) {
+        try {
+            Claims claims = getClaims(token);
+            String tenantIdStr = claims.get("tenant_id", String.class);
+            return tenantIdStr != null ? UUID.fromString(tenantIdStr) : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String extractTenantRole(String token) {
+        try {
+            Claims claims = getClaims(token);
+            return claims.get("tenant_role", String.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public List<String> extractRoles(String token) {
