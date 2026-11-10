@@ -10,25 +10,30 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    boolean existsByNameIgnoreCase(String name);
+    Page<Product> findByTenantId(UUID tenantId, Pageable pageable);
 
-    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
+    Optional<Product> findByTenantIdAndId(UUID tenantId, Long id);
 
-    Optional<Product> findByNameIgnoreCase(String name);
+    boolean existsByTenantIdAndNameIgnoreCase(UUID tenantId, String name);
 
-    Page<Product> findByNameContainingIgnoreCase(String name, Pageable pageable);
+    boolean existsByTenantIdAndNameIgnoreCaseAndIdNot(UUID tenantId, String name, Long id);
 
-    Page<Product> findByCategoryIgnoreCase(String category, Pageable pageable);
+    Optional<Product> findByTenantIdAndNameIgnoreCase(UUID tenantId, String name);
+
+    Page<Product> findByTenantIdAndNameContainingIgnoreCase(UUID tenantId, String name, Pageable pageable);
+
+    Page<Product> findByTenantIdAndCategoryIgnoreCase(UUID tenantId, String category, Pageable pageable);
 
     @Modifying
-    @Query(value = "UPDATE products SET stock_quantity = stock_quantity - :quantity, updated_at = NOW() WHERE id = :productId AND stock_quantity >= :quantity", nativeQuery = true)
-    int decrementStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
+    @Query(value = "UPDATE products SET stock_quantity = stock_quantity - :quantity, updated_at = NOW() WHERE id = :productId AND tenant_id = :tenantId AND stock_quantity >= :quantity", nativeQuery = true)
+    int decrementStock(@Param("tenantId") UUID tenantId, @Param("productId") Long productId, @Param("quantity") Integer quantity);
 
     @Modifying
-    @Query(value = "UPDATE products SET stock_quantity = stock_quantity + :quantity, updated_at = NOW() WHERE id = :productId", nativeQuery = true)
-    int incrementStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
+    @Query(value = "UPDATE products SET stock_quantity = stock_quantity + :quantity, updated_at = NOW() WHERE id = :productId AND tenant_id = :tenantId", nativeQuery = true)
+    int incrementStock(@Param("tenantId") UUID tenantId, @Param("productId") Long productId, @Param("quantity") Integer quantity);
 }

@@ -5,11 +5,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Schema(description = "Représentation publique d'un produit")
 public record ProductResponse(
     @Schema(description = "Identifiant unique du produit", example = "1")
     Long id,
+
+    @Schema(description = "Identifiant du locataire propriétaire")
+    UUID tenantId,
 
     @Schema(description = "Nom du produit", example = "MacBook Pro M3")
     String name,
@@ -32,12 +36,25 @@ public record ProductResponse(
     @Schema(description = "Date et heure de dernière modification", example = "2026-10-15T18:30:00")
     LocalDateTime updatedAt
 ) {
+    public ProductResponse(
+            Long id,
+            String name,
+            String description,
+            BigDecimal price,
+            Integer stockQuantity,
+            String category,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
+        this(id, null, name, description, price, stockQuantity, category, createdAt, updatedAt);
+    }
+
     public static ProductResponse fromEntity(Product product) {
         if (product == null) {
             return null;
         }
         return new ProductResponse(
             product.getId(),
+            product.getTenantId(),
             product.getName(),
             product.getDescription(),
             product.getPrice(),

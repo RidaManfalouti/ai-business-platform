@@ -6,10 +6,13 @@ import com.aibi.product_service.entity.Product;
 import com.aibi.product_service.exception.ProductAlreadyExistsException;
 import com.aibi.product_service.exception.ProductNotFoundException;
 import com.aibi.product_service.repository.ProductRepository;
+import com.aibi.product_service.security.TenantContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -22,13 +25,15 @@ public class ProductService {
     }
 
     public ProductResponse createProduct(ProductRequest request) {
-        if (productRepository.existsByNameIgnoreCase(request.name().trim())) {
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        if (productRepository.existsByTenantIdAndNameIgnoreCase(tenantId, request.name().trim())) {
             throw new ProductAlreadyExistsException(
                     "Un produit portant le nom '" + request.name() + "' existe déjà."
             );
         }
 
         Product product = Product.builder()
+                .tenantId(tenantId)
                 .name(request.name().trim())
                 .description(request.description())
                 .price(request.price())
@@ -42,7 +47,8 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductResponse getProductById(Long id) {
-        Product product = productRepository.findById(id)
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        Product product = productRepository.findByTenantIdAndId(tenantId, id)
                 .orElseThrow(() -> new ProductNotFoundException(
                         "Produit introuvable avec l'identifiant : " + id
                 ));
@@ -51,27 +57,30 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<ProductResponse> getAllProducts(Pageable pageable) {
-        return productRepository.findAll(pageable)
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        return productRepository.findByTenantId(tenantId, pageable)
                 .map(ProductResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)
     public Page<ProductResponse> searchProductsByName(String name, Pageable pageable) {
+        UUID tenantId = TenantContext.getRequiredTenantId();
         if (name == null || name.isBlank()) {
             return getAllProducts(pageable);
         }
-        return productRepository.findByNameContainingIgnoreCase(name.trim(), pageable)
+        return productRepository.findByTenantIdAndNameContainingIgnoreCase(tenantId, name.trim(), pageable)
                 .map(ProductResponse::fromEntity);
     }
 
     public ProductResponse updateProduct(Long id, ProductRequest request) {
-        Product product = productRepository.findById(id)
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        Product product = productRepository.findByTenantIdAndId(tenantId, id)
                 .orElseThrow(() -> new ProductNotFoundException(
                         "Produit introuvable avec l'identifiant : " + id
                 ));
 
         String trimmedName = request.name().trim();
-        if (productRepository.existsByNameIgnoreCaseAndIdNot(trimmedName, id)) {
+        if (productRepository.existsByTenantIdAndNameIgnoreCaseAndIdNot(tenantId, trimmedName, id)) {
             throw new ProductAlreadyExistsException(
                     "Un autre produit portant le nom '" + trimmedName + "' existe déjà."
             );
@@ -88,11 +97,11 @@ public class ProductService {
     }
 
     public void deleteProduct(Long id) {
-        if (!productRepository.existsById(id)) {
-            throw new ProductNotFoundException(
-                    "Produit introuvable avec l'identifiant : " + id
-            );
-        }
-        productRepository.deleteById(id);
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        Product product = productRepository.findByTenantIdAndId(tenantId, id)
+                .orElseThrow(() -> new ProductNotFoundException(
+                        "Produit introuvable avec l'identifiant : " + id
+                ));
+        productRepository.delete(product);
     }
 }

@@ -7,6 +7,7 @@ import com.aibi.product_service.entity.Product;
 import com.aibi.product_service.exception.InsufficientStockException;
 import com.aibi.product_service.repository.ProductRepository;
 import com.aibi.product_service.repository.StockReservationRepository;
+import com.aibi.product_service.security.TenantContext;
 import com.aibi.product_service.service.StockReservationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 class StockConcurrencyIntegrationTest {
 
+    private static final UUID TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     @Autowired
     private StockReservationService stockReservationService;
 
@@ -36,8 +39,9 @@ class StockConcurrencyIntegrationTest {
     @Test
     @DisplayName("Concurrence réelle : 6 demandes concurrentes pour 1 unité sur un stock initial de 5 -> exactement 5 succès et 1 rejet 409")
     void testConcurrentOversellPrevention_5UnitsVs6Requests() throws InterruptedException {
-        // 1. Création d'un produit avec un stock strictement égal à 5
+        // 1. Création d'un produit avec un stock strictement égal à 5 pour le tenant
         Product product = Product.builder()
+                .tenantId(TENANT_ID)
                 .name("Test Concurrency Laptop " + UUID.randomUUID())
                 .description("Produit de test de concurrence")
                 .price(new BigDecimal("999.99"))
@@ -58,6 +62,7 @@ class StockConcurrencyIntegrationTest {
         for (int i = 0; i < numberOfThreads; i++) {
             final int index = i;
             executor.submit(() -> {
+                TenantContext.setTenantId(TENANT_ID);
                 try {
                     startGate.await(); // Attente du coup d'envoi simultané
                     String reservationId = "CONC-5VS6-" + index + "-" + UUID.randomUUID();
@@ -70,9 +75,9 @@ class StockConcurrencyIntegrationTest {
                 } catch (InsufficientStockException ex) {
                     failureCount.incrementAndGet();
                 } catch (Exception ex) {
-                    // Erreur inattendue
                     ex.printStackTrace();
                 } finally {
+                    TenantContext.clear();
                     endGate.countDown();
                 }
             });
@@ -92,7 +97,7 @@ class StockConcurrencyIntegrationTest {
                 .isEqualTo(1);
 
         // Vérification de l'état final en base : le stock résiduel doit être exactement 0 (jamais négatif)
-        Product finalProduct = productRepository.findById(productId).orElseThrow();
+        Product finalProduct = productRepository.findByTenantIdAndId(TENANT_ID, productId).orElseThrow();
         assertThat(finalProduct.getStockQuantity())
                 .as("Le stock résiduel en base doit être exactement 0")
                 .isEqualTo(0);
@@ -102,6 +107,7 @@ class StockConcurrencyIntegrationTest {
     @DisplayName("Concurrence réelle : 2 demandes concurrentes de 3 unités sur un stock de 5 -> 1 succès, 1 échec, solde 2")
     void testConcurrentOversellPrevention_2RequestsOf3UnitsOnStock5() throws InterruptedException {
         Product product = Product.builder()
+                .tenantId(TENANT_ID)
                 .name("Test Concurrency Screen " + UUID.randomUUID())
                 .description("Écran de test")
                 .price(new BigDecimal("350.00"))
@@ -122,6 +128,7 @@ class StockConcurrencyIntegrationTest {
         for (int i = 0; i < numberOfThreads; i++) {
             final int index = i;
             executor.submit(() -> {
+                TenantContext.setTenantId(TENANT_ID);
                 try {
                     startGate.await();
                     String reservationId = "CONC-2X3-" + index + "-" + UUID.randomUUID();
@@ -138,6 +145,7 @@ class StockConcurrencyIntegrationTest {
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 } finally {
+                    TenantContext.clear();
                     endGate.countDown();
                 }
             });
@@ -151,7 +159,7 @@ class StockConcurrencyIntegrationTest {
         assertThat(successCount.get()).isEqualTo(1);
         assertThat(failureCount.get()).isEqualTo(1);
 
-        Product finalProduct = productRepository.findById(productId).orElseThrow();
+        Product finalProduct = productRepository.findByTenantIdAndId(TENANT_ID, productId).orElseThrow();
         assertThat(finalProduct.getStockQuantity()).isEqualTo(2);
     }
 
@@ -159,6 +167,7 @@ class StockConcurrencyIntegrationTest {
     @DisplayName("Idempotence concurrente : 4 threads tentent la même réservation -> stock décrémenté une seule fois")
     void testConcurrentIdempotentReservation_SameReservationId() throws InterruptedException {
         Product product = Product.builder()
+                .tenantId(TENANT_ID)
                 .name("Test Concurrency Mouse " + UUID.randomUUID())
                 .description("Souris de test")
                 .price(new BigDecimal("25.00"))
@@ -179,6 +188,7 @@ class StockConcurrencyIntegrationTest {
 
         for (int i = 0; i < numberOfThreads; i++) {
             executor.submit(() -> {
+                TenantContext.setTenantId(TENANT_ID);
                 try {
                     startGate.await();
                     StockReservationRequest request = new StockReservationRequest(
@@ -190,6 +200,7 @@ class StockConcurrencyIntegrationTest {
                 } catch (Exception ex) {
                     errors.incrementAndGet();
                 } finally {
+                    TenantContext.clear();
                     endGate.countDown();
                 }
             });
@@ -201,7 +212,7 @@ class StockConcurrencyIntegrationTest {
 
         assertThat(completed).isTrue();
         // Le stock ne doit avoir été décrémenté que de 2 (10 -> 8), et JAMAIS de 8 (10 -> 2)
-        Product finalProduct = productRepository.findById(productId).orElseThrow();
+        Product finalProduct = productRepository.findByTenantIdAndId(TENANT_ID, productId).orElseThrow();
         assertThat(finalProduct.getStockQuantity()).isEqualTo(8);
         assertThat(responses.size()).isGreaterThanOrEqualTo(1);
     }

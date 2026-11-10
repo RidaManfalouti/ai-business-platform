@@ -10,8 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -20,15 +21,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@WithMockUser
 class StockReservationControllerTest {
+
+    private static final UUID TENANT_A = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID TENANT_B = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
     @Autowired
     private MockMvc mockMvc;
@@ -41,9 +44,20 @@ class StockReservationControllerTest {
 
     private Product testProduct;
 
+    private static RequestPostProcessor userJwt() {
+        return jwt().jwt(jwt -> jwt.claim("tenant_id", TENANT_A.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    private static RequestPostProcessor tenantBJwt() {
+        return jwt().jwt(jwt -> jwt.claim("tenant_id", TENANT_B.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
     @BeforeEach
     void setUp() {
         testProduct = productRepository.save(Product.builder()
+                .tenantId(TENANT_A)
                 .name("Produit Test Stock " + UUID.randomUUID())
                 .description("Test Description")
                 .price(new BigDecimal("99.99"))
@@ -69,6 +83,7 @@ class StockReservationControllerTest {
                 """.formatted(resId, testProduct.getId());
 
         mockMvc.perform(post("/api/products/reservations")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
@@ -77,8 +92,37 @@ class StockReservationControllerTest {
                 .andExpect(jsonPath("$.items", hasSize(1)))
                 .andExpect(jsonPath("$.items[0].quantity").value(3));
 
-        Product updated = productRepository.findById(testProduct.getId()).orElseThrow();
+        Product updated = productRepository.findByTenantIdAndId(TENANT_A, testProduct.getId()).orElseThrow();
         assertThat(updated.getStockQuantity()).isEqualTo(7); // 10 - 3 = 7
+    }
+
+    @Test
+    @DisplayName("Multi-tenant : Tenant B ne peut pas réserver un produit appartenant au Tenant A")
+    void shouldPreventCrossTenantReservation() throws Exception {
+        String resId = "RES-CROSS-" + UUID.randomUUID();
+        String payload = """
+                {
+                    "reservationId": "%s",
+                    "items": [
+                        {
+                            "productId": %d,
+                            "quantity": 2
+                        }
+                    ]
+                }
+                """.formatted(resId, testProduct.getId());
+
+        // Tenant B tente de réserver le produit de Tenant A -> 404 Not Found (produit inexistant pour Tenant B)
+        mockMvc.perform(post("/api/products/reservations")
+                        .with(tenantBJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
+
+        // Le stock de Tenant A reste intact
+        Product untouched = productRepository.findByTenantIdAndId(TENANT_A, testProduct.getId()).orElseThrow();
+        assertThat(untouched.getStockQuantity()).isEqualTo(10);
     }
 
     @Test
@@ -98,13 +142,14 @@ class StockReservationControllerTest {
                 """.formatted(resId, testProduct.getId());
 
         mockMvc.perform(post("/api/products/reservations")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("CONFLICT"))
                 .andExpect(jsonPath("$.message", containsString("Stock insuffisant")));
 
-        Product updated = productRepository.findById(testProduct.getId()).orElseThrow();
+        Product updated = productRepository.findByTenantIdAndId(TENANT_A, testProduct.getId()).orElseThrow();
         assertThat(updated.getStockQuantity()).isEqualTo(10); // inchangé
     }
 
@@ -126,22 +171,24 @@ class StockReservationControllerTest {
 
         // Première requête
         mockMvc.perform(post("/api/products/reservations")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated());
 
-        Product afterFirst = productRepository.findById(testProduct.getId()).orElseThrow();
+        Product afterFirst = productRepository.findByTenantIdAndId(TENANT_A, testProduct.getId()).orElseThrow();
         assertThat(afterFirst.getStockQuantity()).isEqualTo(6); // 10 - 4 = 6
 
         // Seconde requête avec le même reservationId
         mockMvc.perform(post("/api/products/reservations")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.reservationId").value(resId))
                 .andExpect(jsonPath("$.status").value("RESERVED"));
 
-        Product afterSecond = productRepository.findById(testProduct.getId()).orElseThrow();
+        Product afterSecond = productRepository.findByTenantIdAndId(TENANT_A, testProduct.getId()).orElseThrow();
         assertThat(afterSecond.getStockQuantity()).isEqualTo(6); // Toujours 6, pas de double décrémentation !
     }
 
@@ -163,28 +210,31 @@ class StockReservationControllerTest {
 
         // Réserver 4 unités
         mockMvc.perform(post("/api/products/reservations")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated());
 
-        assertThat(productRepository.findById(testProduct.getId()).orElseThrow().getStockQuantity()).isEqualTo(6);
+        assertThat(productRepository.findByTenantIdAndId(TENANT_A, testProduct.getId()).orElseThrow().getStockQuantity()).isEqualTo(6);
 
         // Libérer la réservation
-        mockMvc.perform(post("/api/products/reservations/{id}/release", resId))
+        mockMvc.perform(post("/api/products/reservations/{id}/release", resId)
+                        .with(userJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reservationId").value(resId))
                 .andExpect(jsonPath("$.status").value("RELEASED"));
 
         // Vérifier que le stock a été restitué
-        Product restored = productRepository.findById(testProduct.getId()).orElseThrow();
+        Product restored = productRepository.findByTenantIdAndId(TENANT_A, testProduct.getId()).orElseThrow();
         assertThat(restored.getStockQuantity()).isEqualTo(10);
 
         // Seconde libération (idempotence)
-        mockMvc.perform(post("/api/products/reservations/{id}/release", resId))
+        mockMvc.perform(post("/api/products/reservations/{id}/release", resId)
+                        .with(userJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RELEASED"));
 
-        assertThat(productRepository.findById(testProduct.getId()).orElseThrow().getStockQuantity()).isEqualTo(10);
+        assertThat(productRepository.findByTenantIdAndId(TENANT_A, testProduct.getId()).orElseThrow().getStockQuantity()).isEqualTo(10);
     }
 
     @Test
@@ -192,6 +242,7 @@ class StockReservationControllerTest {
     void shouldHandleConcurrentReservationsSafelyWithoutOverselling() throws Exception {
         // Produit avec stock initial de 10 unités
         Product concurrentProduct = productRepository.save(Product.builder()
+                .tenantId(TENANT_A)
                 .name("Produit Concurrence " + UUID.randomUUID())
                 .description("Concurrence Test")
                 .price(new BigDecimal("10.00"))
@@ -224,7 +275,7 @@ class StockReservationControllerTest {
                             """.formatted(resId, concurrentProduct.getId());
 
                     int statusCode = mockMvc.perform(post("/api/products/reservations")
-                                    .with(user("concurrent-user"))
+                                    .with(userJwt())
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(payload))
                             .andReturn()
@@ -252,7 +303,7 @@ class StockReservationControllerTest {
         assertThat(successCount.get()).isEqualTo(10);
         assertThat(conflictCount.get()).isEqualTo(10);
 
-        Product finalProduct = productRepository.findById(concurrentProduct.getId()).orElseThrow();
+        Product finalProduct = productRepository.findByTenantIdAndId(TENANT_A, concurrentProduct.getId()).orElseThrow();
         assertThat(finalProduct.getStockQuantity()).isEqualTo(0);
         assertThat(finalProduct.getStockQuantity()).isNotNegative();
     }
@@ -273,6 +324,7 @@ class StockReservationControllerTest {
                 """.formatted(testProduct.getId());
 
         mockMvc.perform(post("/api/products/reservations")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
@@ -296,6 +348,7 @@ class StockReservationControllerTest {
                 """.formatted(testProduct.getId());
 
         mockMvc.perform(post("/api/products/reservations")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
@@ -314,6 +367,7 @@ class StockReservationControllerTest {
                 """;
 
         mockMvc.perform(post("/api/products/reservations")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
@@ -324,7 +378,8 @@ class StockReservationControllerTest {
     @Test
     @DisplayName("POST /api/products/reservations/{id}/release : Réservation inexistante -> 404 Not Found")
     void shouldReturn404WhenReleasingNonExistentReservation() throws Exception {
-        mockMvc.perform(post("/api/products/reservations/{id}/release", "RES-DOES-NOT-EXIST"))
+        mockMvc.perform(post("/api/products/reservations/{id}/release", "RES-DOES-NOT-EXIST")
+                        .with(userJwt()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.message", containsString("RES-DOES-NOT-EXIST")));

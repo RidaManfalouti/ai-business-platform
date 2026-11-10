@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/products/reservations")
-@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+@PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER')")
 @Tag(name = "Stock Reservation", description = "Endpoints de réservation et compensation de stock de produits")
 public class StockReservationController {
 
@@ -29,7 +29,7 @@ public class StockReservationController {
 
     @PostMapping
     @Operation(summary = "Réserver du stock de façon atomique et idempotente",
-            description = "Décrémente le stock en base de façon atomique conditionnelle. Si le stock est insuffisant, la requête est rejetée sans effet de bord.")
+            description = "Décrémente le stock en base de façon atomique conditionnelle pour le locataire. Si le stock est insuffisant, la requête est rejetée sans effet de bord.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Stock réservé avec succès"),
             @ApiResponse(responseCode = "200", description = "Réservation existante retournée (idempotence)"),
@@ -45,7 +45,7 @@ public class StockReservationController {
 
     @PostMapping("/{reservationId}/release")
     @Operation(summary = "Libérer une réservation de stock (compensation Saga)",
-            description = "Réincrémente le stock des produits et marque la réservation comme libérée de manière idempotente.")
+            description = "Réincrémente le stock des produits et marque la réservation comme libérée de manière idempotente pour le locataire.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Réservation libérée avec succès (ou déjà libérée)"),
             @ApiResponse(responseCode = "404", description = "Réservation introuvable")
@@ -71,12 +71,12 @@ public class StockReservationController {
     }
 
     @GetMapping("/stale")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     @Operation(summary = "Lister les réservations de stock obsolètes (réconciliation)",
-            description = "Retourne les réservations actives (RESERVED) créées il y a plus de N minutes pour les audits de réconciliation.")
+            description = "Retourne les réservations actives (RESERVED) créées il y a plus de N minutes pour les audits de réconciliation du locataire.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Liste des réservations obsolètes"),
-            @ApiResponse(responseCode = "403", description = "Accès restreint à ROLE_ADMIN")
+            @ApiResponse(responseCode = "403", description = "Accès restreint à ROLE_ADMIN ou ROLE_OWNER")
     })
     public ResponseEntity<java.util.List<StockReservationResponse>> getStaleReservations(
             @Parameter(description = "Âge minimum en minutes pour qualifier une réservation d'obsolète", example = "30")

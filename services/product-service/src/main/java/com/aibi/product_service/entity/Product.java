@@ -5,9 +5,12 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
-@Table(name = "products")
+@Table(name = "products", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_products_tenant_name", columnNames = {"tenant_id", "name"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,7 +22,10 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(name = "tenant_id", nullable = false, updatable = false)
+    private UUID tenantId;
+
+    @Column(nullable = false, length = 100)
     private String name;
 
     @Column(length = 1000)
