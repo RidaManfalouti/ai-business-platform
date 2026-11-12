@@ -30,12 +30,12 @@ public class CustomerController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @Operation(summary = "Créer un nouveau client", description = "Enregistre un nouveau profil client")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER')")
+    @Operation(summary = "Créer un nouveau client", description = "Enregistre un nouveau profil client dans le locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Client créé avec succès"),
         @ApiResponse(responseCode = "400", description = "Données de validation invalides"),
-        @ApiResponse(responseCode = "409", description = "Un client avec cet e-mail existe déjà")
+        @ApiResponse(responseCode = "409", description = "Un client avec cet e-mail existe déjà dans ce locataire")
     })
     public ResponseEntity<CustomerResponse> createCustomer(
             @Valid @RequestBody CustomerRequest request) {
@@ -44,8 +44,8 @@ public class CustomerController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @Operation(summary = "Consulter un client par son identifiant", description = "Retourne les informations d'un client spécifique")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER', 'VIEWER')")
+    @Operation(summary = "Consulter un client par son identifiant", description = "Retourne les informations d'un client spécifique au locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Client trouvé"),
         @ApiResponse(responseCode = "404", description = "Client introuvable")
@@ -56,8 +56,8 @@ public class CustomerController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @Operation(summary = "Lister les clients avec pagination et tri", description = "Récupère les clients de manière paginée et triée")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER', 'VIEWER')")
+    @Operation(summary = "Lister les clients avec pagination et tri", description = "Récupère les clients du locataire de manière paginée et triée")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Liste paginée des clients")
     })
@@ -67,8 +67,8 @@ public class CustomerController {
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @Operation(summary = "Rechercher des clients par nom ou par email", description = "Recherche multicritère insensible à la casse")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER', 'VIEWER')")
+    @Operation(summary = "Rechercher des clients par nom ou par email", description = "Recherche multicritère insensible à la casse au sein du locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Résultats paginés de la recherche")
     })
@@ -88,13 +88,13 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @Operation(summary = "Modifier les informations d'un client", description = "Met à jour l'ensemble des coordonnées d'un client")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER')")
+    @Operation(summary = "Modifier les informations d'un client", description = "Met à jour l'ensemble des coordonnées d'un client du locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Client modifié avec succès"),
         @ApiResponse(responseCode = "400", description = "Données de validation invalides"),
         @ApiResponse(responseCode = "404", description = "Client introuvable"),
-        @ApiResponse(responseCode = "409", description = "L'adresse email est déjà utilisée par un autre client")
+        @ApiResponse(responseCode = "409", description = "L'adresse email est déjà utilisée par un autre client de ce locataire")
     })
     public ResponseEntity<CustomerResponse> updateCustomer(
             @Parameter(description = "Identifiant du client à modifier") @PathVariable Long id,
@@ -103,11 +103,11 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Supprimer un client", description = "Supprime définitivement un client du système")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @Operation(summary = "Supprimer un client", description = "Supprime définitivement un client du locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Client supprimé avec succès"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Droits administrateur requis"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Droits administrateur ou propriétaire requis"),
         @ApiResponse(responseCode = "404", description = "Client introuvable")
     })
     public ResponseEntity<Void> deleteCustomer(

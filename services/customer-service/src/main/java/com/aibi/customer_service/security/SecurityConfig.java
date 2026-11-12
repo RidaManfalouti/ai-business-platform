@@ -22,6 +22,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -38,12 +39,15 @@ public class SecurityConfig {
 
     private final String jwtSecret;
     private final JwtRoleConverter jwtRoleConverter;
+    private final TenantContextFilter tenantContextFilter;
 
     public SecurityConfig(
             @Value("${jwt.secret}") String jwtSecret,
-            JwtRoleConverter jwtRoleConverter) {
+            JwtRoleConverter jwtRoleConverter,
+            TenantContextFilter tenantContextFilter) {
         this.jwtSecret = jwtSecret;
         this.jwtRoleConverter = jwtRoleConverter;
+        this.tenantContextFilter = tenantContextFilter;
     }
 
     @Bean
@@ -68,10 +72,12 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html"
                 ).permitAll()
-                // Customer deletion is restricted to ADMIN
-                .requestMatchers(HttpMethod.DELETE, "/api/customers", "/api/customers/**").hasRole("ADMIN")
-                // Customer management (create, view, update, search) accessible to USER and ADMIN
-                .requestMatchers("/api/customers", "/api/customers/**").hasAnyRole("USER", "ADMIN")
+                // Customer deletion is restricted to ADMIN and OWNER
+                .requestMatchers(HttpMethod.DELETE, "/api/customers", "/api/customers/**")
+                    .hasAnyRole("ADMIN", "OWNER")
+                // Customer management accessible to tenant roles
+                .requestMatchers("/api/customers", "/api/customers/**")
+                    .hasAnyRole("USER", "ADMIN", "OWNER", "MANAGER", "SELLER", "VIEWER")
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -82,6 +88,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint(authenticationEntryPoint())
                 .accessDeniedHandler(accessDeniedHandler())
             )
+            .addFilterAfter(tenantContextFilter, BearerTokenAuthenticationFilter.class)
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable);
 
