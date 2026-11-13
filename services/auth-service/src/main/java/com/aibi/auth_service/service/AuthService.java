@@ -22,18 +22,23 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
+    private static final UUID DEFAULT_LEGACY_TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     private final UserRepository userRepository;
     private final MembershipRepository membershipRepository;
+    private final com.aibi.auth_service.repository.TenantRepository tenantRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public AuthService(
             UserRepository userRepository,
             MembershipRepository membershipRepository,
+            com.aibi.auth_service.repository.TenantRepository tenantRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService) {
         this.userRepository = userRepository;
         this.membershipRepository = membershipRepository;
+        this.tenantRepository = tenantRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -56,7 +61,41 @@ public class AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        String token = jwtService.generateToken(savedUser);
+
+        Tenant defaultTenant = tenantRepository.findById(DEFAULT_LEGACY_TENANT_ID).orElse(null);
+        UUID activeTenantId = null;
+        String activeTenantSlug = null;
+        String activeTenantRole = null;
+        List<TenantSummaryResponse> availableTenants = Collections.emptyList();
+        String token;
+
+        if (defaultTenant != null && defaultTenant.getStatus() == Tenant.TenantStatus.ACTIVE) {
+            Membership membership = Membership.builder()
+                    .id(UUID.randomUUID())
+                    .tenantId(DEFAULT_LEGACY_TENANT_ID)
+                    .tenant(defaultTenant)
+                    .userId(savedUser.getId())
+                    .user(savedUser)
+                    .role(Membership.TenantRole.MANAGER)
+                    .status(Membership.MembershipStatus.ACTIVE)
+                    .build();
+            membershipRepository.save(membership);
+
+            activeTenantId = defaultTenant.getId();
+            activeTenantSlug = defaultTenant.getSlug();
+            activeTenantRole = membership.getRole().name();
+            availableTenants = List.of(new TenantSummaryResponse(
+                    defaultTenant.getId(),
+                    defaultTenant.getName(),
+                    defaultTenant.getSlug(),
+                    defaultTenant.getStatus().name(),
+                    membership.getRole().name()
+            ));
+
+            token = jwtService.generateToken(savedUser, activeTenantId, activeTenantSlug, activeTenantRole);
+        } else {
+            token = jwtService.generateToken(savedUser);
+        }
 
         return new AuthResponse(
                 token,
@@ -65,10 +104,10 @@ public class AuthService {
                 savedUser.getUsername(),
                 savedUser.getEmail(),
                 savedUser.getRole().name(),
-                null,
-                null,
-                null,
-                Collections.emptyList()
+                activeTenantId,
+                activeTenantSlug,
+                activeTenantRole,
+                availableTenants
         );
     }
 
