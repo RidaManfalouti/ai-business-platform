@@ -4,6 +4,7 @@ import com.aibi.sales_service.client.ProductServiceClient;
 import com.aibi.sales_service.client.dto.StockReleaseResponse;
 import com.aibi.sales_service.saga.entity.Saga;
 import com.aibi.sales_service.saga.repository.SagaRepository;
+import com.aibi.sales_service.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,13 +96,18 @@ public class SagaRecoveryWorker {
         int processedCount = 0;
 
         for (Saga saga : eligibleSagas) {
-            boolean claimed = sagaService.claimSagaForCompensation(saga.getSagaId());
-            if (!claimed) {
-                continue;
-            }
+            try {
+                TenantContext.setTenantId(saga.getTenantId());
+                boolean claimed = sagaService.claimSagaForCompensation(saga.getSagaId());
+                if (!claimed) {
+                    continue;
+                }
 
-            processSingleSagaCompensation(saga);
-            processedCount++;
+                processSingleSagaCompensation(saga);
+                processedCount++;
+            } finally {
+                TenantContext.clear();
+            }
         }
 
         return processedCount;
@@ -112,10 +118,11 @@ public class SagaRecoveryWorker {
                 ? saga.getReservationId()
                 : saga.getSaleReference();
 
-        log.info("Reprise compensation pour Saga {} (Réf: {}, Réservation: {}, Tentative: {}/{})",
-                saga.getSagaId(), saga.getSaleReference(), reservationId, saga.getAttemptCount() + 1, maxAttempts);
+        log.info("Reprise compensation pour Saga {} (Tenant: {}, Réf: {}, Réservation: {}, Tentative: {}/{})",
+                saga.getSagaId(), saga.getTenantId(), saga.getSaleReference(), reservationId, saga.getAttemptCount() + 1, maxAttempts);
 
         try {
+            TenantContext.setTenantId(saga.getTenantId());
             // Appel réseau idempotent exécuté EN DEHORS de toute transaction de base de données longue
             StockReleaseResponse response = productServiceClient.releaseStock(reservationId);
             log.info("Compensation réussie pour Saga {} : {}", saga.getSagaId(), response != null ? response.message() : "OK");
@@ -135,18 +142,16 @@ public class SagaRecoveryWorker {
             if (sagaMetrics != null) {
                 sagaMetrics.recordRecoveryAttempt(false);
             }
+        } finally {
+            TenantContext.clear();
         }
     }
 
     public LocalDateTime calculateNextRetry(int attemptNumber) {
-        // Formule exponentielle bornée : min(maxBackoff, initialBackoff * multiplier^(attempt-1))
         double exponentialDelay = initialBackoffMs * Math.pow(backoffMultiplier, Math.max(0, attemptNumber - 1));
         long boundedDelay = (long) Math.min(maxBackoffMs, exponentialDelay);
-
-        // Ajout d'un jitter aléatoire (0 à 20% du délai) pour éviter les tempêtes de requêtes concurrentes (thundering herd)
         long jitter = boundedDelay > 0 ? (long) (random.nextDouble() * 0.2 * boundedDelay) : 0;
         long totalDelayMs = boundedDelay + jitter;
-
         return LocalDateTime.now().plusNanos(totalDelayMs * 1_000_000L);
     }
 }

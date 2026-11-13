@@ -118,6 +118,15 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(MissingTenantContextException.class)
+    public ResponseEntity<Map<String, String>> handleMissingTenantContext(MissingTenantContextException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of(
+                        "error", "FORBIDDEN",
+                        "message", ex.getMessage()
+                ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

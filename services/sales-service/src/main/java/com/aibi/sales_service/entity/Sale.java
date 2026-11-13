@@ -8,9 +8,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
-@Table(name = "sales")
+@Table(name = "sales", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_sales_tenant_reference", columnNames = {"tenant_id", "reference"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,7 +25,10 @@ public class Sale {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 64)
+    @Column(name = "tenant_id", nullable = false, updatable = false)
+    private UUID tenantId;
+
+    @Column(nullable = false, length = 64)
     private String reference;
 
     @Column(name = "customer_id", nullable = false)
@@ -51,6 +57,9 @@ public class Sale {
         }
         items.add(item);
         item.setSale(this);
+        if (this.tenantId != null && item.getTenantId() == null) {
+            item.setTenantId(this.tenantId);
+        }
     }
 
     @PrePersist

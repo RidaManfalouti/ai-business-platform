@@ -21,6 +21,8 @@ import com.aibi.sales_service.saga.repository.SagaRepository;
 import com.aibi.sales_service.saga.service.SagaRecoveryWorker;
 import com.aibi.sales_service.saga.service.SagaService;
 import com.aibi.sales_service.service.SalesService;
+import com.aibi.sales_service.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -76,15 +78,23 @@ class SagaFailureAndRecoveryIntegrationTest {
     @MockitoBean
     private CustomerServiceClient customerServiceClient;
 
+    private static final UUID TEST_TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     private String randomSuffix() {
         return UUID.randomUUID().toString().substring(0, 8);
     }
 
     @BeforeEach
     void setUp() {
+        TenantContext.setTenantId(TEST_TENANT_ID);
         saleRepository.deleteAll();
         sagaEventRepository.deleteAll();
         sagaRepository.deleteAll();
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test
@@ -144,6 +154,7 @@ class SagaFailureAndRecoveryIntegrationTest {
 
         // Création initiale d'une Saga en attente de compensation
         Saga saga = Saga.builder()
+                .tenantId(TEST_TENANT_ID)
                 .sagaId(sagaId)
                 .sagaType(SagaType.CREATE_SALE)
                 .saleReference(ref)
@@ -196,6 +207,7 @@ class SagaFailureAndRecoveryIntegrationTest {
 
         // 1. Simuler une Saga persistée avant le crash/redémarrage
         Saga persistedBeforeCrash = Saga.builder()
+                .tenantId(TEST_TENANT_ID)
                 .sagaId(sagaId)
                 .sagaType(SagaType.CANCEL_SALE)
                 .saleReference("REF-" + randomSuffix())
@@ -227,6 +239,7 @@ class SagaFailureAndRecoveryIntegrationTest {
         String sagaId2 = "SAGA-LOCK-2-" + randomSuffix();
 
         Saga s1 = Saga.builder()
+                .tenantId(TEST_TENANT_ID)
                 .sagaId(sagaId1)
                 .sagaType(SagaType.CREATE_SALE)
                 .saleReference("REF-1")
@@ -238,6 +251,7 @@ class SagaFailureAndRecoveryIntegrationTest {
                 .build();
 
         Saga s2 = Saga.builder()
+                .tenantId(TEST_TENANT_ID)
                 .sagaId(sagaId2)
                 .sagaType(SagaType.CREATE_SALE)
                 .saleReference("REF-2")

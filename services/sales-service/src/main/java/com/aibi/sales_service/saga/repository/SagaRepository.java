@@ -12,9 +12,20 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface SagaRepository extends JpaRepository<Saga, Long> {
+
+    Optional<Saga> findByTenantIdAndSagaId(UUID tenantId, String sagaId);
+
+    Optional<Saga> findByTenantIdAndSaleReferenceAndSagaType(UUID tenantId, String saleReference, SagaType sagaType);
+
+    List<Saga> findByTenantIdAndSaleReference(UUID tenantId, String saleReference);
+
+    List<Saga> findByTenantIdAndStatus(UUID tenantId, SagaStatus status);
+
+    List<Saga> findByTenantId(UUID tenantId);
 
     Optional<Saga> findBySagaId(String sagaId);
 
@@ -30,9 +41,7 @@ public interface SagaRepository extends JpaRepository<Saga, Long> {
 
     /**
      * Sélectionne et verrouille de façon atomique et sans blocage (FOR UPDATE SKIP LOCKED)
-     * les sagas éligibles à une reprise de compensation.
-     * Cette clause garantit qu'en environnement multi-instances, chaque saga n'est traitée
-     * que par un unique worker de reprise à un instant T.
+     * les sagas éligibles à une reprise de compensation, tous locataires confondus.
      */
     @Query(value = "SELECT * FROM sagas " +
             "WHERE status IN ('COMPENSATION_PENDING', 'COMPENSATING') " +
@@ -43,7 +52,7 @@ public interface SagaRepository extends JpaRepository<Saga, Long> {
     List<Saga> findEligibleForRecovery(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
     /**
-     * Recherche les sagas bloquées dans un état intermédiaire depuis plus d'un seuil donné (détection d'anomalies de réconciliation).
+     * Recherche les sagas bloquées dans un état intermédiaire depuis plus d'un seuil donné.
      */
     @Query("SELECT s FROM Saga s WHERE s.status IN :statuses AND s.createdAt < :threshold")
     List<Saga> findStaleSagas(@Param("statuses") Collection<SagaStatus> statuses, @Param("threshold") LocalDateTime threshold);

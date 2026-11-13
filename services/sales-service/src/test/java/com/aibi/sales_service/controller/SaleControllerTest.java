@@ -19,9 +19,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -31,14 +32,17 @@ import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@WithMockUser
 class SaleControllerTest {
+
+    private static final UUID TENANT_A = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID TENANT_B = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
     @Autowired
     private MockMvc mockMvc;
@@ -52,6 +56,16 @@ class SaleControllerTest {
     @MockitoBean
     private CustomerServiceClient customerServiceClient;
 
+    private static RequestPostProcessor userJwt() {
+        return jwt().jwt(jwt -> jwt.claim("tenant_id", TENANT_A.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    private static RequestPostProcessor tenantBJwt() {
+        return jwt().jwt(jwt -> jwt.claim("tenant_id", TENANT_B.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
     private String randomSuffix() {
         return UUID.randomUUID().toString().substring(0, 8);
     }
@@ -62,7 +76,7 @@ class SaleControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/sales : Création valide -> 201 Created avec recalcul serveur")
+    @DisplayName("POST /api/sales : Création valide -> 201 Created avec recalcul serveur et scoping tenant")
     void shouldCreateSaleSuccessfully() throws Exception {
         Long customerId = 10L;
         Long productId = 100L;
@@ -87,10 +101,12 @@ class SaleControllerTest {
                 """.formatted(customerId, ref, productId);
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id", notNullValue()))
+                .andExpect(jsonPath("$.tenantId").value(TENANT_A.toString()))
                 .andExpect(jsonPath("$.reference").value(ref))
                 .andExpect(jsonPath("$.customerId").value(customerId))
                 .andExpect(jsonPath("$.status").value("PENDING"))
@@ -100,6 +116,77 @@ class SaleControllerTest {
                 .andExpect(jsonPath("$.items[0].unitPrice").value(350.00))
                 .andExpect(jsonPath("$.items[0].quantity").value(2))
                 .andExpect(jsonPath("$.items[0].lineTotal").value(700.00));
+    }
+
+    @Test
+    @DisplayName("Multi-tenant : Deux locataires différents peuvent créer une vente avec la même référence")
+    void shouldAllowSameReferenceInDifferentTenants() throws Exception {
+        String sharedRef = "CMD-SHARED-" + randomSuffix();
+
+        when(customerServiceClient.getCustomerById(any()))
+                .thenReturn(new CustomerDto(1L, "Alice", "Smith", "alice@example.com", "0102030405", "Acme"));
+        when(productServiceClient.getProductById(any()))
+                .thenReturn(new ProductDto(10L, "Produit", "Desc", new BigDecimal("100.00"), 50, "Cat"));
+
+        String payload = """
+                {
+                    "customerId": 1,
+                    "reference": "%s",
+                    "items": [
+                        {
+                            "productId": 10,
+                            "quantity": 1
+                        }
+                    ]
+                }
+                """.formatted(sharedRef);
+
+        // Tenant A crée la vente
+        mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tenantId").value(TENANT_A.toString()));
+
+        // Tenant B crée une vente avec la même référence -> Succès (isolation multi-tenant)
+        mockMvc.perform(post("/api/sales")
+                        .with(tenantBJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tenantId").value(TENANT_B.toString()));
+    }
+
+    @Test
+    @DisplayName("Multi-tenant : Tenant B ne peut pas accéder ni modifier la vente de Tenant A (404)")
+    void shouldPreventCrossTenantSaleAccess() throws Exception {
+        Sale sale = Sale.builder()
+                .tenantId(TENANT_A)
+                .reference("REF-A-" + randomSuffix())
+                .customerId(1L)
+                .status(SaleStatus.PENDING)
+                .totalAmount(new BigDecimal("100.00"))
+                .build();
+        Sale saved = saleRepository.save(sale);
+
+        // Tenant B tente d'accéder à la vente de Tenant A -> 404
+        mockMvc.perform(get("/api/sales/{id}", saved.getId())
+                        .with(tenantBJwt()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
+
+        // Tenant B tente de mettre à jour le statut de la vente de Tenant A -> 404
+        mockMvc.perform(patch("/api/sales/{id}/status", saved.getId())
+                        .with(tenantBJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"CONFIRMED\"}"))
+                .andExpect(status().isNotFound());
+
+        // Tenant B tente d'annuler la vente de Tenant A -> 404
+        mockMvc.perform(post("/api/sales/{id}/cancel", saved.getId())
+                        .with(tenantBJwt()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -117,6 +204,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
@@ -135,6 +223,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
@@ -158,6 +247,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
@@ -183,6 +273,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isNotFound())
@@ -211,6 +302,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isNotFound())
@@ -226,7 +318,6 @@ class SaleControllerTest {
         when(productServiceClient.getProductById(eq(10L)))
                 .thenReturn(new ProductDto(10L, "Souris", "Souris sans fil", new BigDecimal("20.00"), 3, "Accessoires"));
 
-        // Demande de 5 unités alors qu'il n'y en a que 3
         String payload = """
                 {
                     "customerId": 1,
@@ -240,6 +331,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isConflict())
@@ -248,11 +340,12 @@ class SaleControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/sales : référence déjà existante -> 409 Conflict")
+    @DisplayName("POST /api/sales : référence déjà existante dans le même tenant -> 409 Conflict")
     void shouldReturn409WhenReferenceAlreadyExists() throws Exception {
         String existingRef = "REF-DOUBLE-" + randomSuffix();
 
         Sale existingSale = Sale.builder()
+                .tenantId(TENANT_A)
                 .reference(existingRef)
                 .customerId(1L)
                 .status(SaleStatus.PENDING)
@@ -274,6 +367,7 @@ class SaleControllerTest {
                 """.formatted(existingRef);
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isConflict())
@@ -300,6 +394,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadGateway())
@@ -312,6 +407,7 @@ class SaleControllerTest {
     void shouldGetSaleByIdSuccessfully() throws Exception {
         String ref = "REF-GET-" + randomSuffix();
         Sale sale = Sale.builder()
+                .tenantId(TENANT_A)
                 .reference(ref)
                 .customerId(2L)
                 .status(SaleStatus.PENDING)
@@ -319,6 +415,7 @@ class SaleControllerTest {
                 .build();
 
         SaleItem item = SaleItem.builder()
+                .tenantId(TENANT_A)
                 .productId(50L)
                 .productNameSnapshot("Clavier Mécanique")
                 .quantity(1)
@@ -329,7 +426,8 @@ class SaleControllerTest {
 
         Sale saved = saleRepository.save(sale);
 
-        mockMvc.perform(get("/api/sales/{id}", saved.getId()))
+        mockMvc.perform(get("/api/sales/{id}", saved.getId())
+                        .with(userJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(saved.getId()))
                 .andExpect(jsonPath("$.reference").value(ref))
@@ -341,7 +439,8 @@ class SaleControllerTest {
     @Test
     @DisplayName("GET /api/sales/{id} : Vente inexistante -> 404 Not Found")
     void shouldReturn404WhenSaleDoesNotExist() throws Exception {
-        mockMvc.perform(get("/api/sales/999999"))
+        mockMvc.perform(get("/api/sales/999999")
+                        .with(userJwt()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
@@ -351,6 +450,7 @@ class SaleControllerTest {
     void shouldGetAllSalesPaged() throws Exception {
         for (int i = 1; i <= 3; i++) {
             Sale s = Sale.builder()
+                    .tenantId(TENANT_A)
                     .reference("REF-PAGE-" + i + "-" + randomSuffix())
                     .customerId((long) i)
                     .status(SaleStatus.PENDING)
@@ -359,7 +459,8 @@ class SaleControllerTest {
             saleRepository.save(s);
         }
 
-        mockMvc.perform(get("/api/sales?page=0&size=2&sort=id,asc"))
+        mockMvc.perform(get("/api/sales?page=0&size=2&sort=id,asc")
+                        .with(userJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(2)))
                 .andExpect(jsonPath("$.totalElements").value(3))
@@ -372,12 +473,14 @@ class SaleControllerTest {
         Long customerId = 42L;
 
         Sale s1 = Sale.builder()
+                .tenantId(TENANT_A)
                 .reference("REF-CUST-1-" + randomSuffix())
                 .customerId(customerId)
                 .status(SaleStatus.PENDING)
                 .totalAmount(new BigDecimal("100.00"))
                 .build();
         Sale s2 = Sale.builder()
+                .tenantId(TENANT_A)
                 .reference("REF-CUST-2-" + randomSuffix())
                 .customerId(customerId)
                 .status(SaleStatus.CONFIRMED)
@@ -386,7 +489,8 @@ class SaleControllerTest {
         saleRepository.save(s1);
         saleRepository.save(s2);
 
-        mockMvc.perform(get("/api/sales/customer/{customerId}", customerId))
+        mockMvc.perform(get("/api/sales/customer/{customerId}", customerId)
+                        .with(userJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(2)))
                 .andExpect(jsonPath("$.content[0].customerId").value(customerId))
@@ -397,6 +501,7 @@ class SaleControllerTest {
     @DisplayName("PATCH /api/sales/{id}/status : Transition autorisée PENDING -> CONFIRMED -> 200 OK")
     void shouldUpdateStatusSuccessfully() throws Exception {
         Sale sale = Sale.builder()
+                .tenantId(TENANT_A)
                 .reference("REF-STATUS-" + randomSuffix())
                 .customerId(1L)
                 .status(SaleStatus.PENDING)
@@ -411,6 +516,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(patch("/api/sales/{id}/status", saved.getId())
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
@@ -422,6 +528,7 @@ class SaleControllerTest {
     @DisplayName("PATCH /api/sales/{id}/status : Transition interdite COMPLETED -> CANCELLED -> 409 Conflict")
     void shouldReturn409WhenTransitionIsForbidden() throws Exception {
         Sale sale = Sale.builder()
+                .tenantId(TENANT_A)
                 .reference("REF-FORBIDDEN-" + randomSuffix())
                 .customerId(1L)
                 .status(SaleStatus.COMPLETED)
@@ -436,6 +543,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(patch("/api/sales/{id}/status", saved.getId())
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isConflict())
@@ -447,6 +555,7 @@ class SaleControllerTest {
     @DisplayName("PATCH /api/sales/{id}/status : Valeur de statut invalide -> 400 Bad Request")
     void shouldReturn400WhenStatusIsInvalid() throws Exception {
         Sale sale = Sale.builder()
+                .tenantId(TENANT_A)
                 .reference("REF-INV-STATUS-" + randomSuffix())
                 .customerId(1L)
                 .status(SaleStatus.PENDING)
@@ -461,6 +570,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(patch("/api/sales/{id}/status", saved.getId())
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
@@ -477,6 +587,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(patch("/api/sales/999999/status")
+                        .with(userJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isNotFound())
@@ -509,6 +620,7 @@ class SaleControllerTest {
 
         // Première requête avec en-tête Idempotency-Key
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .header("Idempotency-Key", key)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
@@ -518,6 +630,7 @@ class SaleControllerTest {
 
         // Répétition avec la même clé -> 409 CONFLICT (ne crée pas de vente en double)
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .header("Idempotency-Key", key)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
@@ -556,6 +669,7 @@ class SaleControllerTest {
 
         // Première requête avec la clé
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .header("Idempotency-Key", key)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(initialPayload))
@@ -563,7 +677,7 @@ class SaleControllerTest {
                 .andExpect(jsonPath("$.reference").value(key))
                 .andExpect(jsonPath("$.customerId").value(1L));
 
-        // Deuxième requête avec la MÊME clé mais un corps complètement différent (autre client, autre article)
+        // Deuxième requête avec la MÊME clé mais un corps complètement différent
         String differentPayload = """
                 {
                     "customerId": 2,
@@ -577,6 +691,7 @@ class SaleControllerTest {
                 """;
 
         mockMvc.perform(post("/api/sales")
+                        .with(userJwt())
                         .header("Idempotency-Key", key)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(differentPayload))
@@ -584,7 +699,6 @@ class SaleControllerTest {
                 .andExpect(jsonPath("$.error").value("CONFLICT"))
                 .andExpect(jsonPath("$.message", containsString("existe déjà")));
 
-        // Vérification de la persistance : la vente initiale est inchangée, aucune vente pour le client 2
         var sales = saleRepository.findAll();
         assertThat(sales).hasSize(1);
         assertThat(sales.get(0).getReference()).isEqualTo(key);

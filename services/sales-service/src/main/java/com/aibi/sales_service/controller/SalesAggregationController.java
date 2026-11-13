@@ -20,8 +20,8 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/sales/aggregates")
-@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-@Tag(name = "Sales Aggregates", description = "Endpoints d'agrégation SQL optimisés pour l'analytique")
+@PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER', 'VIEWER')")
+@Tag(name = "Sales Aggregates", description = "Endpoints d'agrégation SQL optimisés pour l'analytique par locataire")
 public class SalesAggregationController {
 
     private final SalesService salesService;
@@ -31,7 +31,7 @@ public class SalesAggregationController {
     }
 
     @GetMapping("/summary")
-    @Operation(summary = "Résumé des ventes", description = "Retourne le chiffre d'affaires valide (ventes COMPLETED) et le volume total sur la période")
+    @Operation(summary = "Résumé des ventes", description = "Retourne le chiffre d'affaires valide (ventes COMPLETED) et le volume total sur la période pour le locataire")
     public ResponseEntity<SalesSummaryAggregateResponse> getSummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
@@ -39,7 +39,7 @@ public class SalesAggregationController {
     }
 
     @GetMapping("/status-distribution")
-    @Operation(summary = "Distribution des statuts", description = "Retourne le décompte de chaque statut de commande sur la période")
+    @Operation(summary = "Distribution des statuts", description = "Retourne le décompte de chaque statut de commande sur la période pour le locataire")
     public ResponseEntity<List<SalesStatusCountResponse>> getStatusDistribution(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
@@ -47,7 +47,7 @@ public class SalesAggregationController {
     }
 
     @GetMapping("/trends")
-    @Operation(summary = "Tendances quotidiennes", description = "Retourne le volume de ventes et CA réalisé par jour")
+    @Operation(summary = "Tendances quotidiennes", description = "Retourne le volume de ventes et CA réalisé par jour pour le locataire")
     public ResponseEntity<List<DailyTrendResponse>> getDailyTrends(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
@@ -55,7 +55,7 @@ public class SalesAggregationController {
     }
 
     @GetMapping("/top-products")
-    @Operation(summary = "Produits les plus vendus", description = "Retourne le classement des produits les plus vendus sur les ventes COMPLETED")
+    @Operation(summary = "Produits les plus vendus", description = "Retourne le classement des produits les plus vendus sur les ventes COMPLETED pour le locataire")
     public ResponseEntity<List<TopProductAggregateResponse>> getTopProducts(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,

@@ -19,6 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -26,6 +27,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SagaRecoveryWorkerTest {
+
+    private static final UUID TEST_TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     @Mock
     private SagaRepository sagaRepository;
@@ -53,6 +56,7 @@ class SagaRecoveryWorkerTest {
     @DisplayName("recoverPendingSagas : Succès de la libération -> Saga marquée COMPENSATED")
     void recoverPendingSagas_Success() {
         Saga saga = Saga.builder()
+                .tenantId(TEST_TENANT_ID)
                 .sagaId("SAGA-REC-001")
                 .sagaType(SagaType.CREATE_SALE)
                 .saleReference("REF-REC-001")
@@ -79,6 +83,7 @@ class SagaRecoveryWorkerTest {
     @DisplayName("recoverPendingSagas : Échec réseau de libération -> Enregistre l'échec et planifie le prochain essai avec backoff")
     void recoverPendingSagas_NetworkFailure() {
         Saga saga = Saga.builder()
+                .tenantId(TEST_TENANT_ID)
                 .sagaId("SAGA-REC-002")
                 .sagaType(SagaType.CREATE_SALE)
                 .saleReference("REF-REC-002")
