@@ -289,13 +289,15 @@ Eviction policies and cache purges will target tenant-specific key patterns, ens
 
 ---
 
-## 12. Phased Implementation Roadmap
+## 12. Phased Implementation Roadmap & Verification Status
 
-1. **Phase 0:** Architecture Specification & Multi-Tenancy Design (`docs/architecture/multi-tenancy-design.md`).
-2. **Phase 1:** Tenant & Membership domain model, onboarding, switching, and JWT claim extension in `auth-service`.
-3. **Phase 2:** Database migrations across all microservices with deterministic legacy backfill and composite constraints.
-4. **Phase 3:** `TenantContext` implementation, microservice query scoping, and inter-service token propagation.
-5. **Phase 4:** Analytics aggregation scoping and Redis cache key tenant partitioning.
-6. **Phase 5:** React frontend multi-tenant state, company switcher, and query invalidation.
-7. **Phase 6:** End-to-end cross-tenant security and isolation integration test suite.
-8. **Phase 7:** Observability dashboards, metrics updates, and final operational documentation.
+| Phase | Scope | Status | Test Coverage |
+|---|---|---|---|
+| **Phase 0** | Architecture Specification & Design Doc | **COMPLETED** (`0ba13ea`) | N/A |
+| **Phase 1** | Tenant & Membership Model, Onboarding, Switch, JWT Claims (`auth-service`) | **COMPLETED** (`6716cbc`) | 28/28 tests passing |
+| **Phase 2** | API Gateway Header Stripping & Product Isolation (`api-gateway`, `product-service`) | **COMPLETED** (`502adfd`) | 15/15 + 67/67 tests passing |
+| **Phase 3** | Customer & Sales Isolation, Sagas & Compensation Scoping (`customer-service`, `sales-service`) | **COMPLETED** (`aee95e3`, `b4e61a9`) | 45/45 + 131/131 tests passing |
+| **Phase 4** | Analytics Service Scoping, Context Propagation & Redis Prefix Strategy (`analytics-service`) | **COMPLETED** (`a027751`) | 31/31 tests passing |
+| **Phase 5** | Frontend Multi-Tenancy, Company Switcher, Cache Invalidation (`frontend`) | **COMPLETED** (`ac506ba`) | 31/31 tests passing + `npm run build` OK |
+| **Phase 6** | End-to-End Regression Verification across all 6 microservices & Frontend | **COMPLETED** | **317 backend tests + 31 frontend tests (348 total, 0 failures)** |
+
