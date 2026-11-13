@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
+import { TenantSwitcher } from '@/components/layout/TenantSwitcher';
 import { LogOut, Menu, User, Shield, Server } from 'lucide-react';
 
 export interface HeaderProps {
@@ -32,6 +33,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
+        {user && <TenantSwitcher />}
+
         {user && (
           <div className="flex items-center gap-2.5 text-right">
             <div className="hidden md:block">

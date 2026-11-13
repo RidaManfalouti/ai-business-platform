@@ -8,18 +8,29 @@ vi.mock('@/context/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
+const defaultAuthContext = {
+  isAuthenticated: false,
+  isAdmin: false,
+  isLoading: false,
+  user: null,
+  token: null,
+  activeTenantId: null,
+  activeTenantSlug: null,
+  activeTenantRole: null,
+  availableTenants: [],
+  login: vi.fn(),
+  register: vi.fn(),
+  logout: vi.fn(),
+  refreshUser: vi.fn(),
+  switchTenant: vi.fn(),
+  createTenant: vi.fn(),
+  loadTenants: vi.fn(),
+};
+
 describe('ProtectedRoute', () => {
   it('redirects to /login when user is unauthenticated', () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
-      isAuthenticated: false,
-      isAdmin: false,
-      isLoading: false,
-      user: null,
-      token: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshUser: vi.fn(),
+      ...defaultAuthContext,
     });
 
     render(
@@ -44,9 +55,8 @@ describe('ProtectedRoute', () => {
 
   it('renders child component when user is authenticated', () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      ...defaultAuthContext,
       isAuthenticated: true,
-      isAdmin: false,
-      isLoading: false,
       user: {
         userId: '1',
         username: 'testuser',
@@ -54,10 +64,6 @@ describe('ProtectedRoute', () => {
         role: 'USER',
       },
       token: 'valid.token',
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshUser: vi.fn(),
     });
 
     render(
@@ -80,9 +86,8 @@ describe('ProtectedRoute', () => {
 
   it('blocks non-admin users on adminOnly routes', () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      ...defaultAuthContext,
       isAuthenticated: true,
-      isAdmin: false,
-      isLoading: false,
       user: {
         userId: '1',
         username: 'regular_user',
@@ -90,10 +95,6 @@ describe('ProtectedRoute', () => {
         role: 'USER',
       },
       token: 'valid.token',
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshUser: vi.fn(),
     });
 
     render(
@@ -119,9 +120,9 @@ describe('ProtectedRoute', () => {
 
   it('allows admin users on adminOnly routes', () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      ...defaultAuthContext,
       isAuthenticated: true,
       isAdmin: true,
-      isLoading: false,
       user: {
         userId: '2',
         username: 'admin_user',
@@ -129,10 +130,6 @@ describe('ProtectedRoute', () => {
         role: 'ADMIN',
       },
       token: 'admin.token',
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshUser: vi.fn(),
     });
 
     render(

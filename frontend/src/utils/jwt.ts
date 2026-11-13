@@ -1,4 +1,4 @@
-import { DecodedJwt, UserRole } from '@/types/auth';
+import { DecodedJwt, TenantRole, UserRole } from '@/types/auth';
 
 /**
  * Safely decodes a JWT token payload without external libraries.
@@ -54,4 +54,23 @@ export function extractRoleFromToken(token: string): UserRole {
     r === 'ROLE_ADMIN' || r === 'ADMIN'
   );
   return hasAdmin ? 'ADMIN' : 'USER';
+}
+
+/**
+ * Extracts active tenant details from token claims.
+ */
+export function extractTenantFromToken(token: string): {
+  tenantId?: string;
+  tenantSlug?: string;
+  tenantRole?: TenantRole;
+} {
+  const decoded = decodeJwt(token);
+  if (!decoded) {
+    return {};
+  }
+  return {
+    tenantId: typeof decoded.tenant_id === 'string' ? decoded.tenant_id : undefined,
+    tenantSlug: typeof decoded.tenant_slug === 'string' ? decoded.tenant_slug : undefined,
+    tenantRole: typeof decoded.tenant_role === 'string' ? (decoded.tenant_role as TenantRole) : undefined,
+  };
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './queryClient';
 import { AuthProvider } from '@/context/AuthContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
@@ -14,22 +15,6 @@ import { SaleDetailPage } from '@/pages/sales/SaleDetailPage';
 import { AdminSagasPage } from '@/pages/admin/AdminSagasPage';
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: (failureCount, error: any) => {
-        // Do not retry on 401, 403, 404
-        if (error?.status === 401 || error?.status === 403 || error?.status === 404) {
-          return false;
-        }
-        return failureCount < 2;
-      },
-      refetchOnWindowFocus: false,
-      staleTime: 1000 * 30, // 30 seconds
-    },
-  },
-});
 
 export const App: React.FC = () => {
   return (
