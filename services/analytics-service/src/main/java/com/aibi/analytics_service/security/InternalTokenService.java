@@ -25,10 +25,14 @@ public class InternalTokenService {
     }
 
     public String getInternalServiceToken() {
-        return getInternalServiceToken(null);
+        java.util.UUID tenantId = TenantContext.getRequiredTenantId();
+        return getInternalServiceToken(tenantId);
     }
 
     public String getInternalServiceToken(java.util.UUID tenantId) {
+        if (tenantId == null) {
+            throw new com.aibi.analytics_service.exception.MissingTenantContextException("Identifiant de locataire (tenant_id) requis pour générer un jeton de service interne.");
+        }
         try {
             MACSigner signer = new MACSigner(secretBytes);
             Date now = new Date();

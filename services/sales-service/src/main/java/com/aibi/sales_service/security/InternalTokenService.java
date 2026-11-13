@@ -25,7 +25,6 @@ import java.util.UUID;
 public class InternalTokenService {
 
     private static final Logger log = LoggerFactory.getLogger(InternalTokenService.class);
-    private static final UUID DEFAULT_LEGACY_TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     private final byte[] secretBytes;
 
@@ -34,11 +33,14 @@ public class InternalTokenService {
     }
 
     public String getInternalServiceToken() {
-        UUID tenantId = TenantContext.getTenantId();
-        return getInternalServiceToken(tenantId != null ? tenantId : DEFAULT_LEGACY_TENANT_ID);
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        return getInternalServiceToken(tenantId);
     }
 
     public String getInternalServiceToken(UUID tenantId) {
+        if (tenantId == null) {
+            throw new com.aibi.sales_service.exception.MissingTenantContextException("Identifiant de locataire (tenant_id) requis pour générer un jeton de service interne.");
+        }
         try {
             MACSigner signer = new MACSigner(secretBytes);
             Date now = new Date();

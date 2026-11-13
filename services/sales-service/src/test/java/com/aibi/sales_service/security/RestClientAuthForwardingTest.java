@@ -60,24 +60,45 @@ class RestClientAuthForwardingTest {
     }
 
     @Test
-    @DisplayName("Injection du jeton interne de service lorsque aucun RequestContext n'est actif (worker de reprise)")
+    @DisplayName("Injection du jeton interne de service lorsque aucun RequestContext n'est actif mais que le contexte locataire est positionné (worker de reprise)")
     void shouldInjectInternalServiceTokenWhenNoRequestContext() {
         RequestContextHolder.resetRequestAttributes();
+        java.util.UUID testTenantId = java.util.UUID.randomUUID();
+        TenantContext.setTenantId(testTenantId);
+
+        try {
+            RestClient.Builder clientBuilder = productRestClient.mutate();
+            MockRestServiceServer mockServer = MockRestServiceServer.bindTo(clientBuilder).build();
+            RestClient client = clientBuilder.build();
+
+            mockServer.expect(requestTo("http://localhost:8082/api/products/1"))
+                    .andExpect(method(HttpMethod.GET))
+                    .andExpect(header(HttpHeaders.AUTHORIZATION, org.hamcrest.Matchers.startsWith("Bearer ")))
+                    .andRespond(withSuccess("{\"id\":1,\"name\":\"Test Product\",\"price\":10.0,\"stockQuantity\":5}", MediaType.APPLICATION_JSON));
+
+            client.get()
+                    .uri("/api/products/1")
+                    .retrieve()
+                    .toBodilessEntity();
+
+            mockServer.verify();
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("SEC-MT-02: Rejet fail-closed avec MissingTenantContextException si aucun RequestContext et aucun TenantContext")
+    void shouldThrowMissingTenantContextWhenNoRequestContextAndNoTenantContext() {
+        RequestContextHolder.resetRequestAttributes();
+        TenantContext.clear();
 
         RestClient.Builder clientBuilder = productRestClient.mutate();
-        MockRestServiceServer mockServer = MockRestServiceServer.bindTo(clientBuilder).build();
         RestClient client = clientBuilder.build();
 
-        mockServer.expect(requestTo("http://localhost:8082/api/products/1"))
-                .andExpect(method(HttpMethod.GET))
-                .andExpect(header(HttpHeaders.AUTHORIZATION, org.hamcrest.Matchers.startsWith("Bearer ")))
-                .andRespond(withSuccess("{\"id\":1,\"name\":\"Test Product\",\"price\":10.0,\"stockQuantity\":5}", MediaType.APPLICATION_JSON));
-
-        client.get()
-                .uri("/api/products/1")
-                .retrieve()
-                .toBodilessEntity();
-
-        mockServer.verify();
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.aibi.sales_service.exception.MissingTenantContextException.class,
+                () -> client.get().uri("/api/products/1").retrieve().toBodilessEntity()
+        );
     }
 }
