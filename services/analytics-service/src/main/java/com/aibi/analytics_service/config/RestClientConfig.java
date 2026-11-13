@@ -92,7 +92,8 @@ public class RestClientConfig {
             }
 
             // Fallback to internal service JWT if no user context is active
-            String internalToken = internalTokenService.getInternalServiceToken();
+            java.util.UUID currentTenant = com.aibi.analytics_service.security.TenantContext.getTenantId();
+            String internalToken = internalTokenService.getInternalServiceToken(currentTenant);
             request.getHeaders().set(HttpHeaders.AUTHORIZATION, "Bearer " + internalToken);
             return execution.execute(request, body);
         };

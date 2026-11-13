@@ -25,18 +25,27 @@ public class InternalTokenService {
     }
 
     public String getInternalServiceToken() {
+        return getInternalServiceToken(null);
+    }
+
+    public String getInternalServiceToken(java.util.UUID tenantId) {
         try {
             MACSigner signer = new MACSigner(secretBytes);
             Date now = new Date();
             Date expiry = new Date(now.getTime() + 300_000); // 5 minutes
 
-            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+            JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
                     .subject("system-analytics-service")
                     .issuer("analytics-service")
                     .claim("roles", List.of("ROLE_ADMIN", "ROLE_USER"))
                     .issueTime(now)
-                    .expirationTime(expiry)
-                    .build();
+                    .expirationTime(expiry);
+
+            if (tenantId != null) {
+                builder.claim("tenant_id", tenantId.toString());
+            }
+
+            JWTClaimsSet claimsSet = builder.build();
 
             SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claimsSet);
             signedJWT.sign(signer);

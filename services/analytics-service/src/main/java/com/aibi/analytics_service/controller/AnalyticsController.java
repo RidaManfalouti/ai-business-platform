@@ -19,7 +19,7 @@ import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/analytics")
-@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+@PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER', 'VIEWER')")
 @Tag(name = "Analytics", description = "Endpoints de métriques, KPIs et analyses décisionnelles en temps réel")
 public class AnalyticsController {
 

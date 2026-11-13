@@ -44,6 +44,11 @@ public class JwtRoleConverter implements Converter<Jwt, AbstractAuthenticationTo
             }
         }
 
+        Object tenantRoleClaim = jwt.getClaim("tenant_role");
+        if (tenantRoleClaim != null) {
+            addAuthority(authorities, tenantRoleClaim.toString());
+        }
+
         return Collections.unmodifiableList(authorities);
     }
 

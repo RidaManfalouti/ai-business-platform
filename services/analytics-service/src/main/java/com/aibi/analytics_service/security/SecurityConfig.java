@@ -37,12 +37,15 @@ public class SecurityConfig {
 
     private final String jwtSecret;
     private final JwtRoleConverter jwtRoleConverter;
+    private final TenantContextFilter tenantContextFilter;
 
     public SecurityConfig(
             @Value("${jwt.secret}") String jwtSecret,
-            JwtRoleConverter jwtRoleConverter) {
+            JwtRoleConverter jwtRoleConverter,
+            TenantContextFilter tenantContextFilter) {
         this.jwtSecret = jwtSecret;
         this.jwtRoleConverter = jwtRoleConverter;
+        this.tenantContextFilter = tenantContextFilter;
     }
 
     @Bean
@@ -67,7 +70,7 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html"
                 ).permitAll()
-                .requestMatchers("/api/analytics", "/api/analytics/**").hasAnyRole("USER", "ADMIN")
+                .requestMatchers("/api/analytics", "/api/analytics/**").hasAnyRole("USER", "ADMIN", "OWNER", "MANAGER", "SELLER", "VIEWER")
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -78,6 +81,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint(authenticationEntryPoint())
                 .accessDeniedHandler(accessDeniedHandler())
             )
+            .addFilterAfter(tenantContextFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable);
 
