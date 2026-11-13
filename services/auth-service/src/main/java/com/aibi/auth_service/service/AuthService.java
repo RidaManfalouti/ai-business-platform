@@ -76,7 +76,7 @@ public class AuthService {
                     .tenant(defaultTenant)
                     .userId(savedUser.getId())
                     .user(savedUser)
-                    .role(Membership.TenantRole.MANAGER)
+                    .role(Membership.TenantRole.SELLER)
                     .status(Membership.MembershipStatus.ACTIVE)
                     .build();
             membershipRepository.save(membership);
