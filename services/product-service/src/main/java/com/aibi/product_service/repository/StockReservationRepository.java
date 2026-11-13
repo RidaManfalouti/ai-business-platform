@@ -35,14 +35,4 @@ public interface StockReservationRepository extends JpaRepository<StockReservati
             UUID tenantId,
             StockReservationStatus status,
             LocalDateTime threshold);
-
-    @EntityGraph(attributePaths = {"items"})
-    Optional<StockReservation> findByReservationId(String reservationId);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"items"})
-    @Query("SELECT r FROM StockReservation r WHERE r.reservationId = :reservationId")
-    Optional<StockReservation> findByReservationIdForUpdate(@Param("reservationId") String reservationId);
-
-    boolean existsByReservationId(String reservationId);
 }

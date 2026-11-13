@@ -50,6 +50,9 @@ public class JwtService {
                 r = "ROLE_" + r;
             }
             authorities.add(r);
+            if ("ROLE_ADMIN".equals(r)) {
+                authorities.add("ROLE_PLATFORM_ADMIN");
+            }
         }
         if (authorities.isEmpty()) {
             authorities.add("ROLE_USER");

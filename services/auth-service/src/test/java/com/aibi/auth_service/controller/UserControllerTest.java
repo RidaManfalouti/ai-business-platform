@@ -171,4 +171,31 @@ class UserControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("FORBIDDEN"));
     }
+
+    @Test
+    @DisplayName("SEC-MT-01: Administrateur de locataire avec rôle plateforme USER -> 403 Forbidden sur /api/users")
+    void shouldReturn403WhenTenantAdminAttemptsToAccessPlatformUsers() throws Exception {
+        String email = "tenant_admin_" + UUID.randomUUID().toString().substring(0, 8) + "@example.com";
+        User user = getOrCreateUser("tadmin_" + UUID.randomUUID().toString().substring(0, 8), email, User.Role.USER);
+
+        // Token avec rôle plateforme USER mais rôle locataire ADMIN
+        String tenantAdminToken = jwtService.generateToken(
+                user,
+                UUID.randomUUID(),
+                "some-company",
+                "ADMIN"
+        );
+
+        mockMvc.perform(get("/api/users")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAdminToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+
+        mockMvc.perform(patch("/api/users/" + user.getId() + "/role")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tenantAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"ADMIN\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
 }

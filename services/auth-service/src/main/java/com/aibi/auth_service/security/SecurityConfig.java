@@ -58,9 +58,9 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html"
                 ).permitAll()
-                // Admin user management endpoints
-                .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PATCH, "/api/users/*/role").hasRole("ADMIN")
+                // Platform admin user management endpoints
+                .requestMatchers(HttpMethod.GET, "/api/users").hasRole("PLATFORM_ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/users/*/role").hasRole("PLATFORM_ADMIN")
                 // User profile endpoints
                 .requestMatchers("/api/users/me").hasAnyRole("USER", "ADMIN")
                 .anyRequest().authenticated()
