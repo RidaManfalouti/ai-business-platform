@@ -9,20 +9,25 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
-    boolean existsByEmailIgnoreCase(String email);
+    Optional<Customer> findByTenantIdAndId(UUID tenantId, Long id);
 
-    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
+    Page<Customer> findByTenantId(UUID tenantId, Pageable pageable);
 
-    Optional<Customer> findByEmailIgnoreCase(String email);
+    boolean existsByTenantIdAndEmailIgnoreCase(UUID tenantId, String email);
 
-    @Query("SELECT c FROM Customer c WHERE LOWER(c.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(c.lastName) LIKE LOWER(CONCAT('%', :query, '%'))")
-    Page<Customer> searchByName(@Param("query") String query, Pageable pageable);
+    boolean existsByTenantIdAndEmailIgnoreCaseAndIdNot(UUID tenantId, String email, Long id);
 
-    Page<Customer> findByEmailContainingIgnoreCase(String email, Pageable pageable);
+    Optional<Customer> findByTenantIdAndEmailIgnoreCase(UUID tenantId, String email);
 
-    Page<Customer> findByCompanyContainingIgnoreCase(String company, Pageable pageable);
+    @Query("SELECT c FROM Customer c WHERE c.tenantId = :tenantId AND (LOWER(c.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(c.lastName) LIKE LOWER(CONCAT('%', :query, '%')))")
+    Page<Customer> searchByTenantIdAndName(@Param("tenantId") UUID tenantId, @Param("query") String query, Pageable pageable);
+
+    Page<Customer> findByTenantIdAndEmailContainingIgnoreCase(UUID tenantId, String email, Pageable pageable);
+
+    Page<Customer> findByTenantIdAndCompanyContainingIgnoreCase(UUID tenantId, String company, Pageable pageable);
 }

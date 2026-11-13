@@ -8,11 +8,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 @Schema(description = "Représentation publique d'une vente")
 public record SaleResponse(
         @Schema(description = "Identifiant unique de la vente", example = "1")
         Long id,
+
+        @Schema(description = "Identifiant du locataire propriétaire")
+        UUID tenantId,
 
         @Schema(description = "Référence unique de la vente", example = "SAL-20261021-0001")
         String reference,
@@ -35,6 +39,18 @@ public record SaleResponse(
         @Schema(description = "Date et heure de dernière mise à jour", example = "2026-10-21T18:30:00")
         LocalDateTime updatedAt
 ) {
+    public SaleResponse(
+            Long id,
+            String reference,
+            Long customerId,
+            SaleStatus status,
+            BigDecimal totalAmount,
+            List<SaleItemResponse> items,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
+        this(id, null, reference, customerId, status, totalAmount, items, createdAt, updatedAt);
+    }
+
     public static SaleResponse fromEntity(Sale sale) {
         if (sale == null) {
             return null;
@@ -45,6 +61,7 @@ public record SaleResponse(
 
         return new SaleResponse(
                 sale.getId(),
+                sale.getTenantId(),
                 sale.getReference(),
                 sale.getCustomerId(),
                 sale.getStatus(),

@@ -12,11 +12,12 @@ import com.aibi.sales_service.entity.Sale;
 import com.aibi.sales_service.exception.*;
 import com.aibi.sales_service.model.SaleStatus;
 import com.aibi.sales_service.repository.SaleRepository;
+import com.aibi.sales_service.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,6 +41,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SalesServiceTest {
+
+    private static final UUID TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     @Mock
     private SaleRepository saleRepository;
@@ -61,9 +65,15 @@ class SalesServiceTest {
 
     @BeforeEach
     void setUp() {
+        TenantContext.setTenantId(TENANT_ID);
         mockCustomer = new CustomerDto(1L, "Alice", "Smith", "alice@example.com", "0123456789", "Acme");
         mockProduct1 = new ProductDto(10L, "Laptop", "Description", new BigDecimal("1200.50"), 15, "Tech");
         mockProduct2 = new ProductDto(20L, "Souris", "Description", new BigDecimal("25.00"), 50, "Tech");
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test
@@ -93,14 +103,11 @@ class SalesServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.id()).isEqualTo(100L);
+        assertThat(response.tenantId()).isEqualTo(TENANT_ID);
         assertThat(response.reference()).isEqualTo("REF-TEST-001");
         assertThat(response.customerId()).isEqualTo(1L);
         assertThat(response.status()).isEqualTo(SaleStatus.PENDING);
 
-        // Vérification du recalcul côté serveur :
-        // Ligne 1 : 1200.50 * 2 = 2401.00
-        // Ligne 2 : 25.00 * 3 = 75.00
-        // Total : 2476.00
         assertThat(response.totalAmount()).isEqualByComparingTo(new BigDecimal("2476.00"));
         assertThat(response.items()).hasSize(2);
         assertThat(response.items().get(0).unitPrice()).isEqualByComparingTo(new BigDecimal("1200.50"));
@@ -110,6 +117,21 @@ class SalesServiceTest {
         assertThat(response.items().get(1).unitPrice()).isEqualByComparingTo(new BigDecimal("25.00"));
         assertThat(response.items().get(1).lineTotal()).isEqualByComparingTo(new BigDecimal("75.00"));
         assertThat(response.items().get(1).productNameSnapshot()).isEqualTo("Souris");
+    }
+
+    @Test
+    @DisplayName("createSale : Échec si contexte tenant absent")
+    void createSale_MissingTenantContext() {
+        TenantContext.clear();
+
+        CreateSaleRequest request = new CreateSaleRequest(
+                1L,
+                "REF-NO-TENANT",
+                List.of(new SaleItemRequest(10L, 1))
+        );
+
+        assertThatThrownBy(() -> salesService.createSale(request))
+                .isInstanceOf(MissingTenantContextException.class);
     }
 
     @Test
@@ -177,7 +199,6 @@ class SalesServiceTest {
     @DisplayName("createSale : Stock insuffisant -> InsufficientStockException (409)")
     void createSale_InsufficientStock() {
         when(customerServiceClient.getCustomerById(1L)).thenReturn(mockCustomer);
-        // Stock disponible : 15, demandé : 20
         when(productServiceClient.getProductById(10L)).thenReturn(mockProduct1);
 
         CreateSaleRequest request = new CreateSaleRequest(
@@ -196,7 +217,7 @@ class SalesServiceTest {
     @Test
     @DisplayName("createSale : Référence existante envoyée par le client -> DuplicateSaleReferenceException (409)")
     void createSale_DuplicateReferenceFromClient() {
-        when(saleRepository.existsByReference("REF-EXISTANTE")).thenReturn(true);
+        when(saleRepository.existsByTenantIdAndReference(TENANT_ID, "REF-EXISTANTE")).thenReturn(true);
 
         CreateSaleRequest request = new CreateSaleRequest(
                 1L,
@@ -240,7 +261,6 @@ class SalesServiceTest {
             return s;
         });
 
-        // Même produit demandé deux fois : 2 + 3 = 5 unités
         CreateSaleRequest request = new CreateSaleRequest(
                 1L,
                 null,
@@ -304,13 +324,14 @@ class SalesServiceTest {
     void getSaleById_Found() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .reference("SAL-123")
                 .customerId(5L)
                 .status(SaleStatus.PENDING)
                 .totalAmount(new BigDecimal("100.00"))
                 .build();
 
-        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 1L)).thenReturn(Optional.of(sale));
 
         SaleResponse response = salesService.getSaleById(1L);
         assertThat(response.id()).isEqualTo(1L);
@@ -320,7 +341,7 @@ class SalesServiceTest {
     @Test
     @DisplayName("getSaleById : Vente introuvable -> SaleNotFoundException")
     void getSaleById_NotFound() {
-        when(saleRepository.findByIdWithItems(999L)).thenReturn(Optional.empty());
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> salesService.getSaleById(999L))
                 .isInstanceOf(SaleNotFoundException.class)
@@ -328,10 +349,11 @@ class SalesServiceTest {
     }
 
     @Test
-    @DisplayName("getAllSales : Retourne une page de ventes")
+    @DisplayName("getAllSales : Retourne une page de ventes pour le tenant")
     void getAllSales_ReturnsPage() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .reference("SAL-123")
                 .customerId(5L)
                 .status(SaleStatus.PENDING)
@@ -339,7 +361,7 @@ class SalesServiceTest {
                 .build();
 
         Pageable pageable = PageRequest.of(0, 10);
-        when(saleRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(sale)));
+        when(saleRepository.findByTenantId(TENANT_ID, pageable)).thenReturn(new PageImpl<>(List.of(sale)));
 
         Page<SaleResponse> result = salesService.getAllSales(pageable);
         assertThat(result.getContent()).hasSize(1);
@@ -347,10 +369,11 @@ class SalesServiceTest {
     }
 
     @Test
-    @DisplayName("getSalesByCustomerId : Retourne les ventes d'un client spécifique")
+    @DisplayName("getSalesByCustomerId : Retourne les ventes d'un client spécifique au sein du tenant")
     void getSalesByCustomerId_ReturnsPage() {
         Sale sale = Sale.builder()
                 .id(2L)
+                .tenantId(TENANT_ID)
                 .reference("SAL-456")
                 .customerId(5L)
                 .status(SaleStatus.CONFIRMED)
@@ -358,7 +381,7 @@ class SalesServiceTest {
                 .build();
 
         Pageable pageable = PageRequest.of(0, 10);
-        when(saleRepository.findByCustomerId(5L, pageable)).thenReturn(new PageImpl<>(List.of(sale)));
+        when(saleRepository.findByTenantIdAndCustomerId(TENANT_ID, 5L, pageable)).thenReturn(new PageImpl<>(List.of(sale)));
 
         Page<SaleResponse> result = salesService.getSalesByCustomerId(5L, pageable);
         assertThat(result.getContent()).hasSize(1);
@@ -370,13 +393,14 @@ class SalesServiceTest {
     void updateSaleStatus_PendingToConfirmed() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .status(SaleStatus.PENDING)
                 .reference("SAL-001")
                 .customerId(1L)
                 .totalAmount(BigDecimal.TEN)
                 .build();
 
-        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 1L)).thenReturn(Optional.of(sale));
         when(saleRepository.save(any(Sale.class))).thenAnswer(i -> i.getArgument(0));
 
         SaleResponse response = salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.CONFIRMED));
@@ -388,13 +412,14 @@ class SalesServiceTest {
     void updateSaleStatus_ConfirmedToCompleted() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .status(SaleStatus.CONFIRMED)
                 .reference("SAL-001")
                 .customerId(1L)
                 .totalAmount(BigDecimal.TEN)
                 .build();
 
-        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 1L)).thenReturn(Optional.of(sale));
         when(saleRepository.save(any(Sale.class))).thenAnswer(i -> i.getArgument(0));
 
         SaleResponse response = salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.COMPLETED));
@@ -406,13 +431,14 @@ class SalesServiceTest {
     void updateSaleStatus_CompletedToCancelledForbidden() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .status(SaleStatus.COMPLETED)
                 .reference("SAL-001")
                 .customerId(1L)
                 .totalAmount(BigDecimal.TEN)
                 .build();
 
-        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 1L)).thenReturn(Optional.of(sale));
 
         assertThatThrownBy(() -> salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.CANCELLED)))
                 .isInstanceOf(InvalidSaleStatusTransitionException.class)
@@ -426,13 +452,14 @@ class SalesServiceTest {
     void updateSaleStatus_CancelledToConfirmedForbidden() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .status(SaleStatus.CANCELLED)
                 .reference("SAL-001")
                 .customerId(1L)
                 .totalAmount(BigDecimal.TEN)
                 .build();
 
-        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 1L)).thenReturn(Optional.of(sale));
 
         assertThatThrownBy(() -> salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.CONFIRMED)))
                 .isInstanceOf(InvalidSaleStatusTransitionException.class)
@@ -444,13 +471,14 @@ class SalesServiceTest {
     void updateSaleStatus_SameStatusNoOp() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .status(SaleStatus.PENDING)
                 .reference("SAL-001")
                 .customerId(1L)
                 .totalAmount(BigDecimal.TEN)
                 .build();
 
-        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 1L)).thenReturn(Optional.of(sale));
 
         SaleResponse response = salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.PENDING));
         assertThat(response.status()).isEqualTo(SaleStatus.PENDING);
@@ -460,7 +488,7 @@ class SalesServiceTest {
     @Test
     @DisplayName("updateSaleStatus : Vente introuvable -> SaleNotFoundException")
     void updateSaleStatus_NotFound() {
-        when(saleRepository.findByIdWithItems(999L)).thenReturn(Optional.empty());
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> salesService.updateSaleStatus(999L, new UpdateSaleStatusRequest(SaleStatus.CONFIRMED)))
                 .isInstanceOf(SaleNotFoundException.class);
@@ -504,7 +532,6 @@ class SalesServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Erreur base locale");
 
-        // Vérification que la compensation a bien été appelée pour annuler la réservation
         verify(productServiceClient).releaseStock("REF-COMP-FAIL");
     }
 
@@ -513,18 +540,18 @@ class SalesServiceTest {
     void updateSaleStatus_ToCancelled_ReleasesStock() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .reference("SAL-20261022-CANCEL")
                 .status(SaleStatus.PENDING)
                 .customerId(1L)
                 .totalAmount(new BigDecimal("100.00"))
                 .build();
-        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 1L)).thenReturn(Optional.of(sale));
         when(saleRepository.save(any(Sale.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SaleResponse response = salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.CANCELLED));
 
         assertThat(response.status()).isEqualTo(SaleStatus.CANCELLED);
-        // Vérifie l'appel au Product Service pour libérer le stock réservé
         verify(productServiceClient).releaseStock("SAL-20261022-CANCEL");
         verify(saleRepository).save(sale);
     }
@@ -557,17 +584,17 @@ class SalesServiceTest {
     void updateSaleStatus_AlreadyCancelled_DoesNotReleaseAgain() {
         Sale sale = Sale.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .reference("SAL-20261022-ALREADY-CANCELLED")
                 .status(SaleStatus.CANCELLED)
                 .customerId(1L)
                 .totalAmount(new BigDecimal("100.00"))
                 .build();
-        when(saleRepository.findByIdWithItems(1L)).thenReturn(Optional.of(sale));
+        when(saleRepository.findByTenantIdAndIdWithItems(TENANT_ID, 1L)).thenReturn(Optional.of(sale));
 
         SaleResponse response = salesService.updateSaleStatus(1L, new UpdateSaleStatusRequest(SaleStatus.CANCELLED));
 
         assertThat(response.status()).isEqualTo(SaleStatus.CANCELLED);
-        // Ne doit JAMAIS appeler releaseStock si la vente était déjà CANCELLED
         verify(productServiceClient, never()).releaseStock(any());
         verify(saleRepository, never()).save(any());
     }

@@ -23,8 +23,8 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/sales")
-@PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Saga & Reconciliation Admin", description = "Endpoints opérationnels d'administration des Sagas et de réconciliation de stock (ROLE_ADMIN)")
+@PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+@Tag(name = "Saga & Reconciliation Admin", description = "Endpoints opérationnels d'administration des Sagas et de réconciliation de stock")
 public class SagaAdminController {
 
     private final SagaService sagaService;
@@ -40,7 +40,7 @@ public class SagaAdminController {
     }
 
     @GetMapping("/sagas")
-    @Operation(summary = "Lister les orchestrations Saga", description = "Retourne la liste des Sagas, avec filtre optionnel par statut (ex: FAILED_REQUIRES_ATTENTION)")
+    @Operation(summary = "Lister les orchestrations Saga", description = "Retourne la liste des Sagas du locataire, avec filtre optionnel par statut")
     public ResponseEntity<List<Saga>> getSagas(
             @Parameter(description = "Filtrer par statut de Saga", example = "FAILED_REQUIRES_ATTENTION")
             @RequestParam(required = false) SagaStatus status) {

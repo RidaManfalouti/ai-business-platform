@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/sales")
-@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+@PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER')")
 @Tag(name = "Sales", description = "Endpoints de gestion des ventes et des commandes clients")
 public class SaleController {
 
@@ -32,11 +32,11 @@ public class SaleController {
     }
 
     @PostMapping
-    @Operation(summary = "Créer une nouvelle vente", description = "Enregistre une nouvelle commande client avec recalcul des montants côté serveur et réservation atomique de stock")
+    @Operation(summary = "Créer une nouvelle vente", description = "Enregistre une nouvelle commande client dans le locataire actif avec réservation atomique de stock")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Vente créée avec succès"),
             @ApiResponse(responseCode = "400", description = "Données de requête invalides (ex: quantité nulle ou négative, corps vide)"),
-            @ApiResponse(responseCode = "404", description = "Client ou produit distant introuvable"),
+            @ApiResponse(responseCode = "404", description = "Client ou produit distant introuvable pour ce locataire"),
             @ApiResponse(responseCode = "409", description = "Conflit métier (ex: stock insuffisant, référence en doublon)"),
             @ApiResponse(responseCode = "502", description = "Erreur de réponse ou indisponibilité d'un service distant"),
             @ApiResponse(responseCode = "503", description = "Service distant injoignable ou timeout")
@@ -57,7 +57,7 @@ public class SaleController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Consulter une vente par son identifiant", description = "Retourne la vente complète ainsi que le détail de toutes ses lignes")
+    @Operation(summary = "Consulter une vente par son identifiant", description = "Retourne la vente complète du locataire ainsi que le détail de toutes ses lignes")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Vente trouvée"),
             @ApiResponse(responseCode = "404", description = "Vente introuvable")
@@ -69,7 +69,7 @@ public class SaleController {
     }
 
     @GetMapping
-    @Operation(summary = "Lister les ventes avec pagination et tri", description = "Récupère les ventes enregistrées selon les critères de pagination et tri")
+    @Operation(summary = "Lister les ventes avec pagination et tri", description = "Récupère les ventes enregistrées pour le locataire selon les critères de pagination et tri")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Liste paginée des ventes")
     })
@@ -79,7 +79,7 @@ public class SaleController {
     }
 
     @GetMapping("/customer/{customerId}")
-    @Operation(summary = "Lister les ventes associées à un client", description = "Retourne l'historique des ventes d'un client spécifique")
+    @Operation(summary = "Lister les ventes associées à un client", description = "Retourne l'historique des ventes d'un client spécifique au locataire")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Ventes du client récupérées avec succès")
     })
@@ -91,7 +91,7 @@ public class SaleController {
     }
 
     @PatchMapping("/{id}/status")
-    @Operation(summary = "Modifier le statut d'une vente", description = "Applique une transition de statut autorisée (ex: PENDING -> CONFIRMED)")
+    @Operation(summary = "Modifier le statut d'une vente", description = "Applique une transition de statut autorisée pour une vente du locataire")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Statut modifié avec succès"),
             @ApiResponse(responseCode = "400", description = "Requête invalide ou statut non reconnu"),

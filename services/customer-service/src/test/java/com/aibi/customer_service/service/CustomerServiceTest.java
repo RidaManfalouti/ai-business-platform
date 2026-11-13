@@ -5,7 +5,10 @@ import com.aibi.customer_service.dto.CustomerResponse;
 import com.aibi.customer_service.entity.Customer;
 import com.aibi.customer_service.exception.CustomerAlreadyExistsException;
 import com.aibi.customer_service.exception.CustomerNotFoundException;
+import com.aibi.customer_service.exception.MissingTenantContextException;
 import com.aibi.customer_service.repository.CustomerRepository;
+import com.aibi.customer_service.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +33,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CustomerServiceTest {
+
+    private static final UUID TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     @Mock
     private CustomerRepository customerRepository;
@@ -41,8 +47,11 @@ class CustomerServiceTest {
 
     @BeforeEach
     void setUp() {
+        TenantContext.setTenantId(TENANT_ID);
+
         sampleCustomer = Customer.builder()
                 .id(1L)
+                .tenantId(TENANT_ID)
                 .firstName("Alice")
                 .lastName("Martin")
                 .email("alice.martin@example.com")
@@ -61,16 +70,22 @@ class CustomerServiceTest {
         );
     }
 
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
+
     @Test
     @DisplayName("Création d'un client avec succès")
     void shouldCreateCustomerSuccessfully() {
-        when(customerRepository.existsByEmailIgnoreCase("alice.martin@example.com")).thenReturn(false);
+        when(customerRepository.existsByTenantIdAndEmailIgnoreCase(TENANT_ID, "alice.martin@example.com")).thenReturn(false);
         when(customerRepository.save(any(Customer.class))).thenReturn(sampleCustomer);
 
         CustomerResponse response = customerService.createCustomer(sampleRequest);
 
         assertThat(response).isNotNull();
         assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.tenantId()).isEqualTo(TENANT_ID);
         assertThat(response.firstName()).isEqualTo("Alice");
         assertThat(response.lastName()).isEqualTo("Martin");
         assertThat(response.email()).isEqualTo("alice.martin@example.com");
@@ -78,9 +93,9 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("Échec de création si l'email existe déjà (409)")
+    @DisplayName("Échec de création si l'email existe déjà dans le tenant (409)")
     void shouldThrowConflictWhenEmailAlreadyExistsOnCreate() {
-        when(customerRepository.existsByEmailIgnoreCase("alice.martin@example.com")).thenReturn(true);
+        when(customerRepository.existsByTenantIdAndEmailIgnoreCase(TENANT_ID, "alice.martin@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> customerService.createCustomer(sampleRequest))
                 .isInstanceOf(CustomerAlreadyExistsException.class)
@@ -90,9 +105,18 @@ class CustomerServiceTest {
     }
 
     @Test
+    @DisplayName("Échec si contexte tenant absent")
+    void shouldThrowMissingTenantContextWhenNoTenant() {
+        TenantContext.clear();
+
+        assertThatThrownBy(() -> customerService.createCustomer(sampleRequest))
+                .isInstanceOf(MissingTenantContextException.class);
+    }
+
+    @Test
     @DisplayName("Consultation d'un client par identifiant")
     void shouldGetCustomerByIdSuccessfully() {
-        when(customerRepository.findById(1L)).thenReturn(Optional.of(sampleCustomer));
+        when(customerRepository.findByTenantIdAndId(TENANT_ID, 1L)).thenReturn(Optional.of(sampleCustomer));
 
         CustomerResponse response = customerService.getCustomerById(1L);
 
@@ -104,7 +128,7 @@ class CustomerServiceTest {
     @Test
     @DisplayName("Échec lors de la consultation d'un client inexistant (404)")
     void shouldThrowNotFoundWhenCustomerDoesNotExist() {
-        when(customerRepository.findById(999L)).thenReturn(Optional.empty());
+        when(customerRepository.findByTenantIdAndId(TENANT_ID, 999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> customerService.getCustomerById(999L))
                 .isInstanceOf(CustomerNotFoundException.class)
@@ -112,11 +136,11 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("Liste paginée des clients")
+    @DisplayName("Liste paginée des clients du tenant")
     void shouldGetAllCustomersWithPagination() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Customer> page = new PageImpl<>(List.of(sampleCustomer), pageable, 1);
-        when(customerRepository.findAll(pageable)).thenReturn(page);
+        when(customerRepository.findByTenantId(TENANT_ID, pageable)).thenReturn(page);
 
         Page<CustomerResponse> result = customerService.getAllCustomers(pageable);
 
@@ -129,7 +153,7 @@ class CustomerServiceTest {
     void shouldSearchCustomersByName() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Customer> page = new PageImpl<>(List.of(sampleCustomer), pageable, 1);
-        when(customerRepository.searchByName("Martin", pageable)).thenReturn(page);
+        when(customerRepository.searchByTenantIdAndName(TENANT_ID, "Martin", pageable)).thenReturn(page);
 
         Page<CustomerResponse> result = customerService.searchByName("Martin", pageable);
 
@@ -142,7 +166,7 @@ class CustomerServiceTest {
     void shouldSearchCustomersByEmail() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Customer> page = new PageImpl<>(List.of(sampleCustomer), pageable, 1);
-        when(customerRepository.findByEmailContainingIgnoreCase("alice", pageable)).thenReturn(page);
+        when(customerRepository.findByTenantIdAndEmailContainingIgnoreCase(TENANT_ID, "alice", pageable)).thenReturn(page);
 
         Page<CustomerResponse> result = customerService.searchByEmail("alice", pageable);
 
@@ -161,8 +185,8 @@ class CustomerServiceTest {
                 "New Company"
         );
 
-        when(customerRepository.findById(1L)).thenReturn(Optional.of(sampleCustomer));
-        when(customerRepository.existsByEmailIgnoreCaseAndIdNot("alice.new@example.com", 1L)).thenReturn(false);
+        when(customerRepository.findByTenantIdAndId(TENANT_ID, 1L)).thenReturn(Optional.of(sampleCustomer));
+        when(customerRepository.existsByTenantIdAndEmailIgnoreCaseAndIdNot(TENANT_ID, "alice.new@example.com", 1L)).thenReturn(false);
         when(customerRepository.save(any(Customer.class))).thenReturn(sampleCustomer);
 
         CustomerResponse response = customerService.updateCustomer(1L, updateRequest);
@@ -172,7 +196,7 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("Échec de mise à jour si l'email est déjà utilisé par un autre client (409)")
+    @DisplayName("Échec de mise à jour si l'email est déjà utilisé par un autre client du tenant (409)")
     void shouldThrowConflictWhenUpdatingWithDuplicateEmail() {
         CustomerRequest updateRequest = new CustomerRequest(
                 "Alice",
@@ -182,8 +206,8 @@ class CustomerServiceTest {
                 "Acme"
         );
 
-        when(customerRepository.findById(1L)).thenReturn(Optional.of(sampleCustomer));
-        when(customerRepository.existsByEmailIgnoreCaseAndIdNot("bob@example.com", 1L)).thenReturn(true);
+        when(customerRepository.findByTenantIdAndId(TENANT_ID, 1L)).thenReturn(Optional.of(sampleCustomer));
+        when(customerRepository.existsByTenantIdAndEmailIgnoreCaseAndIdNot(TENANT_ID, "bob@example.com", 1L)).thenReturn(true);
 
         assertThatThrownBy(() -> customerService.updateCustomer(1L, updateRequest))
                 .isInstanceOf(CustomerAlreadyExistsException.class)
@@ -195,22 +219,22 @@ class CustomerServiceTest {
     @Test
     @DisplayName("Suppression d'un client existant (204)")
     void shouldDeleteCustomerSuccessfully() {
-        when(customerRepository.existsById(1L)).thenReturn(true);
+        when(customerRepository.findByTenantIdAndId(TENANT_ID, 1L)).thenReturn(Optional.of(sampleCustomer));
 
         customerService.deleteCustomer(1L);
 
-        verify(customerRepository).deleteById(1L);
+        verify(customerRepository).delete(sampleCustomer);
     }
 
     @Test
     @DisplayName("Échec de suppression d'un client inexistant (404)")
     void shouldThrowNotFoundWhenDeletingNonExistentCustomer() {
-        when(customerRepository.existsById(999L)).thenReturn(false);
+        when(customerRepository.findByTenantIdAndId(TENANT_ID, 999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> customerService.deleteCustomer(999L))
                 .isInstanceOf(CustomerNotFoundException.class)
                 .hasMessageContaining("999");
 
-        verify(customerRepository, never()).deleteById(anyLong());
+        verify(customerRepository, never()).delete(any());
     }
 }

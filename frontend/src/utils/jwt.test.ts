@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decodeJwt, isTokenExpired, extractRoleFromToken } from './jwt';
+import { decodeJwt, isTokenExpired, extractRoleFromToken, extractTenantFromToken } from './jwt';
 
 describe('jwt utility', () => {
   // A test helper creating simple base64url encoded JWTs
@@ -46,5 +46,22 @@ describe('jwt utility', () => {
     expect(extractRoleFromToken(adminToken)).toBe('ADMIN');
     expect(extractRoleFromToken(userToken)).toBe('USER');
     expect(extractRoleFromToken(emptyToken)).toBe('USER');
+  });
+
+  it('should extract tenant claims when present', () => {
+    const tenantToken = createMockJwt({
+      tenant_id: '00000000-0000-0000-0000-000000000001',
+      tenant_slug: 'default-company',
+      tenant_role: 'OWNER',
+    });
+
+    const extracted = extractTenantFromToken(tenantToken);
+    expect(extracted.tenantId).toBe('00000000-0000-0000-0000-000000000001');
+    expect(extracted.tenantSlug).toBe('default-company');
+    expect(extracted.tenantRole).toBe('OWNER');
+
+    const noTenantToken = createMockJwt({});
+    const emptyExtracted = extractTenantFromToken(noTenantToken);
+    expect(emptyExtracted.tenantId).toBeUndefined();
   });
 });

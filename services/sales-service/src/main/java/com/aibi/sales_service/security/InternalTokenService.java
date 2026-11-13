@@ -13,17 +13,20 @@ import org.springframework.stereotype.Service;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Génère des jetons JWT internes signés avec la clé secrète partagée de la plateforme.
  * Utilisé pour authentifier de manière sécurisée les opérations asynchrones ou d'arrière-plan
  * (reprise de Saga, réconciliation de stock) lors des appels vers les autres microservices,
- * en conformité avec les règles RBAC strictes (ROLE_ADMIN).
+ * en conformité avec les règles RBAC strictes (ROLE_ADMIN) et l'isolation multi-tenant (tenant_id).
  */
 @Service
 public class InternalTokenService {
 
     private static final Logger log = LoggerFactory.getLogger(InternalTokenService.class);
+    private static final UUID DEFAULT_LEGACY_TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     private final byte[] secretBytes;
 
     public InternalTokenService(@Value("${jwt.secret}") String jwtSecret) {
@@ -31,20 +34,28 @@ public class InternalTokenService {
     }
 
     public String getInternalServiceToken() {
+        UUID tenantId = TenantContext.getTenantId();
+        return getInternalServiceToken(tenantId != null ? tenantId : DEFAULT_LEGACY_TENANT_ID);
+    }
+
+    public String getInternalServiceToken(UUID tenantId) {
         try {
             MACSigner signer = new MACSigner(secretBytes);
             Date now = new Date();
             Date expiry = new Date(now.getTime() + 300_000); // 5 minutes
 
-            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+            JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
                     .subject("system-saga-recovery")
                     .issuer("sales-service")
                     .claim("roles", List.of("ROLE_ADMIN", "ROLE_USER"))
                     .issueTime(now)
-                    .expirationTime(expiry)
-                    .build();
+                    .expirationTime(expiry);
 
-            SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claimsSet);
+            if (tenantId != null) {
+                builder.claim("tenant_id", tenantId.toString());
+            }
+
+            SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), builder.build());
             signedJWT.sign(signer);
             return signedJWT.serialize();
         } catch (Exception ex) {

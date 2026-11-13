@@ -29,6 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class ProductSecurityTest {
 
+    private static final UUID DEFAULT_TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -36,10 +38,14 @@ class ProductSecurityTest {
     private String jwtSecret;
 
     private String createToken(String subject, long validityMillis) {
-        return createToken(subject, List.of("ROLE_USER"), validityMillis);
+        return createToken(subject, List.of("ROLE_USER"), DEFAULT_TENANT_ID, validityMillis);
     }
 
     private String createToken(String subject, Object rolesClaim, long validityMillis) {
+        return createToken(subject, rolesClaim, DEFAULT_TENANT_ID, validityMillis);
+    }
+
+    private String createToken(String subject, Object rolesClaim, UUID tenantId, long validityMillis) {
         try {
             byte[] secretBytes = Base64.getDecoder().decode(jwtSecret);
             JWSSigner signer = new MACSigner(secretBytes);
@@ -49,6 +55,10 @@ class ProductSecurityTest {
                     .subject(subject)
                     .issueTime(new Date(now))
                     .expirationTime(new Date(now + validityMillis));
+
+            if (tenantId != null) {
+                builder.claim("tenant_id", tenantId.toString());
+            }
 
             if (rolesClaim != null) {
                 builder.claim("roles", rolesClaim);
@@ -94,6 +104,7 @@ class ProductSecurityTest {
                 new JWSHeader(JWSAlgorithm.HS256),
                 new JWTClaimsSet.Builder()
                         .subject("user@example.com")
+                        .claim("tenant_id", DEFAULT_TENANT_ID.toString())
                         .claim("roles", List.of("ROLE_USER"))
                         .expirationTime(new Date(System.currentTimeMillis() + 3600000))
                         .build()
@@ -127,6 +138,18 @@ class ProductSecurityTest {
         mockMvc.perform(get("/api/products")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Requête avec token valide mais sans claim tenant_id -> 403 Forbidden")
+    void shouldReturn403WhenTenantIdClaimIsMissing() throws Exception {
+        String tokenWithoutTenant = createToken("user@example.com", List.of("ROLE_USER"), null, 3600000);
+
+        mockMvc.perform(get("/api/products")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenWithoutTenant))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("Contexte locataire (tenant_id) absent ou non vérifié."));
     }
 
     @Test

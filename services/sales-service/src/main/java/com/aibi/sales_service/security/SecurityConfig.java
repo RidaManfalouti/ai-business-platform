@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -37,12 +38,15 @@ public class SecurityConfig {
 
     private final String jwtSecret;
     private final JwtRoleConverter jwtRoleConverter;
+    private final TenantContextFilter tenantContextFilter;
 
     public SecurityConfig(
             @Value("${jwt.secret}") String jwtSecret,
-            JwtRoleConverter jwtRoleConverter) {
+            JwtRoleConverter jwtRoleConverter,
+            TenantContextFilter tenantContextFilter) {
         this.jwtSecret = jwtSecret;
         this.jwtRoleConverter = jwtRoleConverter;
+        this.tenantContextFilter = tenantContextFilter;
     }
 
     @Bean
@@ -67,11 +71,11 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html"
                 ).permitAll()
-                // Administrative Saga & Reconciliation operations restricted to ADMIN
-                .requestMatchers("/api/sales/sagas", "/api/sales/sagas/**").hasRole("ADMIN")
-                .requestMatchers("/api/sales/reconciliation", "/api/sales/reconciliation/**").hasRole("ADMIN")
-                // Standard sales operations accessible to USER and ADMIN
-                .requestMatchers("/api/sales", "/api/sales/**").hasAnyRole("USER", "ADMIN")
+                // Administrative Saga & Reconciliation operations restricted to ADMIN and OWNER
+                .requestMatchers("/api/sales/sagas", "/api/sales/sagas/**").hasAnyRole("ADMIN", "OWNER")
+                .requestMatchers("/api/sales/reconciliation", "/api/sales/reconciliation/**").hasAnyRole("ADMIN", "OWNER")
+                // Standard sales operations accessible to tenant roles
+                .requestMatchers("/api/sales", "/api/sales/**").hasAnyRole("USER", "ADMIN", "OWNER", "MANAGER", "SELLER", "VIEWER")
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -82,6 +86,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint(authenticationEntryPoint())
                 .accessDeniedHandler(accessDeniedHandler())
             )
+            .addFilterAfter(tenantContextFilter, BearerTokenAuthenticationFilter.class)
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable);
 

@@ -13,9 +13,28 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface StockReservationRepository extends JpaRepository<StockReservation, Long> {
+
+    @EntityGraph(attributePaths = {"items"})
+    Optional<StockReservation> findByTenantIdAndReservationId(UUID tenantId, String reservationId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"items"})
+    @Query("SELECT r FROM StockReservation r WHERE r.tenantId = :tenantId AND r.reservationId = :reservationId")
+    Optional<StockReservation> findByTenantIdAndReservationIdForUpdate(
+            @Param("tenantId") UUID tenantId,
+            @Param("reservationId") String reservationId);
+
+    boolean existsByTenantIdAndReservationId(UUID tenantId, String reservationId);
+
+    @EntityGraph(attributePaths = {"items"})
+    List<StockReservation> findByTenantIdAndStatusAndCreatedAtBefore(
+            UUID tenantId,
+            StockReservationStatus status,
+            LocalDateTime threshold);
 
     @EntityGraph(attributePaths = {"items"})
     Optional<StockReservation> findByReservationId(String reservationId);
@@ -26,7 +45,4 @@ public interface StockReservationRepository extends JpaRepository<StockReservati
     Optional<StockReservation> findByReservationIdForUpdate(@Param("reservationId") String reservationId);
 
     boolean existsByReservationId(String reservationId);
-
-    @EntityGraph(attributePaths = {"items"})
-    List<StockReservation> findByStatusAndCreatedAtBefore(StockReservationStatus status, LocalDateTime threshold);
 }

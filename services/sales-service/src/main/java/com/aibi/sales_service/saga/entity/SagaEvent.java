@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "saga_events")
@@ -18,6 +19,9 @@ public class SagaEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "tenant_id", nullable = false, updatable = false)
+    private UUID tenantId;
 
     @Column(name = "saga_id", nullable = false, length = 64)
     private String sagaId;

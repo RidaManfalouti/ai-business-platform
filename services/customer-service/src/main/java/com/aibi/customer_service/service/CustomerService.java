@@ -6,10 +6,13 @@ import com.aibi.customer_service.entity.Customer;
 import com.aibi.customer_service.exception.CustomerAlreadyExistsException;
 import com.aibi.customer_service.exception.CustomerNotFoundException;
 import com.aibi.customer_service.repository.CustomerRepository;
+import com.aibi.customer_service.security.TenantContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -22,14 +25,16 @@ public class CustomerService {
     }
 
     public CustomerResponse createCustomer(CustomerRequest request) {
+        UUID tenantId = TenantContext.getRequiredTenantId();
         String normalizedEmail = request.email().trim().toLowerCase();
-        if (customerRepository.existsByEmailIgnoreCase(normalizedEmail)) {
+        if (customerRepository.existsByTenantIdAndEmailIgnoreCase(tenantId, normalizedEmail)) {
             throw new CustomerAlreadyExistsException(
                     "Un client avec l'adresse email '" + request.email() + "' existe déjà."
             );
         }
 
         Customer customer = Customer.builder()
+                .tenantId(tenantId)
                 .firstName(request.firstName().trim())
                 .lastName(request.lastName().trim())
                 .email(normalizedEmail)
@@ -43,7 +48,8 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerResponse getCustomerById(Long id) {
-        Customer customer = customerRepository.findById(id)
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        Customer customer = customerRepository.findByTenantIdAndId(tenantId, id)
                 .orElseThrow(() -> new CustomerNotFoundException(
                         "Client introuvable avec l'identifiant : " + id
                 ));
@@ -52,36 +58,40 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public Page<CustomerResponse> getAllCustomers(Pageable pageable) {
-        return customerRepository.findAll(pageable)
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        return customerRepository.findByTenantId(tenantId, pageable)
                 .map(CustomerResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)
     public Page<CustomerResponse> searchByName(String name, Pageable pageable) {
+        UUID tenantId = TenantContext.getRequiredTenantId();
         if (name == null || name.isBlank()) {
             return getAllCustomers(pageable);
         }
-        return customerRepository.searchByName(name.trim(), pageable)
+        return customerRepository.searchByTenantIdAndName(tenantId, name.trim(), pageable)
                 .map(CustomerResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)
     public Page<CustomerResponse> searchByEmail(String email, Pageable pageable) {
+        UUID tenantId = TenantContext.getRequiredTenantId();
         if (email == null || email.isBlank()) {
             return getAllCustomers(pageable);
         }
-        return customerRepository.findByEmailContainingIgnoreCase(email.trim(), pageable)
+        return customerRepository.findByTenantIdAndEmailContainingIgnoreCase(tenantId, email.trim(), pageable)
                 .map(CustomerResponse::fromEntity);
     }
 
     public CustomerResponse updateCustomer(Long id, CustomerRequest request) {
-        Customer customer = customerRepository.findById(id)
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        Customer customer = customerRepository.findByTenantIdAndId(tenantId, id)
                 .orElseThrow(() -> new CustomerNotFoundException(
                         "Client introuvable avec l'identifiant : " + id
                 ));
 
         String normalizedEmail = request.email().trim().toLowerCase();
-        if (customerRepository.existsByEmailIgnoreCaseAndIdNot(normalizedEmail, id)) {
+        if (customerRepository.existsByTenantIdAndEmailIgnoreCaseAndIdNot(tenantId, normalizedEmail, id)) {
             throw new CustomerAlreadyExistsException(
                     "Un autre client utilise déjà l'adresse email '" + request.email() + "'."
             );
@@ -98,11 +108,11 @@ public class CustomerService {
     }
 
     public void deleteCustomer(Long id) {
-        if (!customerRepository.existsById(id)) {
-            throw new CustomerNotFoundException(
-                    "Client introuvable avec l'identifiant : " + id
-            );
-        }
-        customerRepository.deleteById(id);
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        Customer customer = customerRepository.findByTenantIdAndId(tenantId, id)
+                .orElseThrow(() -> new CustomerNotFoundException(
+                        "Client introuvable avec l'identifiant : " + id
+                ));
+        customerRepository.delete(customer);
     }
 }

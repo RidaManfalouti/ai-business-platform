@@ -30,13 +30,13 @@ public class ProductController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Créer un nouveau produit", description = "Enregistre un nouveau produit dans le catalogue")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'MANAGER')")
+    @Operation(summary = "Créer un nouveau produit", description = "Enregistre un nouveau produit dans le catalogue du locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Produit créé avec succès"),
         @ApiResponse(responseCode = "400", description = "Données de validation invalides"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Réservé aux administrateurs"),
-        @ApiResponse(responseCode = "409", description = "Un produit avec ce nom existe déjà")
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Réservé aux gestionnaires"),
+        @ApiResponse(responseCode = "409", description = "Un produit avec ce nom existe déjà dans ce tenant")
     })
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody ProductRequest request) {
@@ -45,8 +45,8 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @Operation(summary = "Consulter un produit par ID", description = "Retourne les détails d'un produit spécifique")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER', 'VIEWER')")
+    @Operation(summary = "Consulter un produit par ID", description = "Retourne les détails d'un produit spécifique au sein du locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Produit trouvé"),
         @ApiResponse(responseCode = "404", description = "Produit non trouvé")
@@ -57,8 +57,8 @@ public class ProductController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @Operation(summary = "Lister les produits avec pagination et tri", description = "Récupère les produits de manière paginée et triée")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER', 'VIEWER')")
+    @Operation(summary = "Lister les produits avec pagination et tri", description = "Récupère les produits du locataire de manière paginée et triée")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Liste paginée des produits")
     })
@@ -73,8 +73,8 @@ public class ProductController {
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    @Operation(summary = "Rechercher des produits par nom", description = "Recherche les produits dont le nom contient le terme spécifié")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'OWNER', 'MANAGER', 'SELLER', 'VIEWER')")
+    @Operation(summary = "Rechercher des produits par nom", description = "Recherche les produits du locataire dont le nom contient le terme spécifié")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Résultats paginés de la recherche")
     })
@@ -86,12 +86,12 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Modifier un produit existant", description = "Met à jour l'ensemble des informations d'un produit")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'MANAGER')")
+    @Operation(summary = "Modifier un produit existant", description = "Met à jour l'ensemble des informations d'un produit du locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Produit modifié avec succès"),
         @ApiResponse(responseCode = "400", description = "Données de validation invalides"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Réservé aux administrateurs"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Réservé aux gestionnaires"),
         @ApiResponse(responseCode = "404", description = "Produit non trouvé"),
         @ApiResponse(responseCode = "409", description = "Le nouveau nom est déjà utilisé par un autre produit")
     })
@@ -102,11 +102,11 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Supprimer un produit", description = "Supprime définitivement un produit du catalogue")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'MANAGER')")
+    @Operation(summary = "Supprimer un produit", description = "Supprime définitivement un produit du catalogue du locataire")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Produit supprimé avec succès"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Réservé aux administrateurs"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Réservé aux gestionnaires"),
         @ApiResponse(responseCode = "404", description = "Produit non trouvé")
     })
     public ResponseEntity<Void> deleteProduct(

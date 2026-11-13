@@ -43,7 +43,13 @@ class AnalyticsSecurityTest {
     @MockitoBean
     private AnalyticsService analyticsService;
 
+    private static final java.util.UUID TEST_TENANT_ID = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     private String createToken(String subject, List<String> roles, long validityMillis) {
+        return createToken(subject, roles, TEST_TENANT_ID, validityMillis);
+    }
+
+    private String createToken(String subject, List<String> roles, java.util.UUID tenantId, long validityMillis) {
         try {
             byte[] secretBytes = Base64.getDecoder().decode(jwtSecret);
             JWSSigner signer = new MACSigner(secretBytes);
@@ -56,6 +62,9 @@ class AnalyticsSecurityTest {
 
             if (roles != null) {
                 builder.claim("roles", roles);
+            }
+            if (tenantId != null) {
+                builder.claim("tenant_id", tenantId.toString());
             }
 
             SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), builder.build());
@@ -142,6 +151,31 @@ class AnalyticsSecurityTest {
 
         mockMvc.perform(get("/api/analytics/kpi")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Requête authentifiée sans claim tenant_id -> 403 Forbidden (fail-closed)")
+    void testMissingTenantIdClaim_Returns403() throws Exception {
+        String tokenWithoutTenant = createToken("user@platform.local", List.of("ROLE_USER"), null, 3600000);
+
+        mockMvc.perform(get("/api/analytics/kpi")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenWithoutTenant))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("Revendication de locataire (tenant_id) requise mais absente."));
+    }
+
+    @Test
+    @DisplayName("Requête avec rôle OWNER de locataire -> 200 OK")
+    void testTenantRoleOwner_Returns200() throws Exception {
+        when(analyticsService.getKpiSummary(any(), any(), any()))
+                .thenReturn(new KpiSummaryResponse(BigDecimal.ZERO, 0L, BigDecimal.ZERO, 0L, 0L, 0L, "EUR", Instant.now(), Instant.now(), "UTC"));
+
+        String ownerToken = createToken("owner@company.com", List.of("ROLE_OWNER"), 3600000);
+
+        mockMvc.perform(get("/api/analytics/kpi")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
                 .andExpect(status().isOk());
     }
 

@@ -7,9 +7,12 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
-@Table(name = "sagas")
+@Table(name = "sagas", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_sagas_tenant_saga_id", columnNames = {"tenant_id", "saga_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,7 +24,10 @@ public class Saga {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "saga_id", nullable = false, unique = true, length = 64)
+    @Column(name = "tenant_id", nullable = false, updatable = false)
+    private UUID tenantId;
+
+    @Column(name = "saga_id", nullable = false, length = 64)
     private String sagaId;
 
     @Enumerated(EnumType.STRING)
@@ -122,7 +128,6 @@ public class Saga {
         if (error == null || error.isBlank()) {
             return null;
         }
-        // Exclure tout token / secret potentiel et limiter à 990 caractères
         String sanitized = error.replaceAll("(?i)(bearer\\s+)[a-zA-Z0-9._-]+", "$1***")
                 .replaceAll("(?i)(password\\s*=\\s*)[^\\s,;&]+", "$1***")
                 .replaceAll("(?i)(secret\\s*=\\s*)[^\\s,;&]+", "$1***");

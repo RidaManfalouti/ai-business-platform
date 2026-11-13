@@ -22,6 +22,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -38,12 +39,15 @@ public class SecurityConfig {
 
     private final String jwtSecret;
     private final JwtRoleConverter jwtRoleConverter;
+    private final TenantContextFilter tenantContextFilter;
 
     public SecurityConfig(
             @Value("${jwt.secret}") String jwtSecret,
-            JwtRoleConverter jwtRoleConverter) {
+            JwtRoleConverter jwtRoleConverter,
+            TenantContextFilter tenantContextFilter) {
         this.jwtSecret = jwtSecret;
         this.jwtRoleConverter = jwtRoleConverter;
+        this.tenantContextFilter = tenantContextFilter;
     }
 
     @Bean
@@ -68,14 +72,16 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html"
                 ).permitAll()
-                // Stock reservations for sales workflows: accessible to USER and ADMIN
-                .requestMatchers("/api/products/reservations", "/api/products/reservations/**").hasAnyRole("USER", "ADMIN")
-                // Product modifications restricted to ADMIN
-                .requestMatchers(HttpMethod.POST, "/api/products").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
-                // Product catalog browsing: accessible to USER and ADMIN
-                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").hasAnyRole("USER", "ADMIN")
+                // Stock reservations for sales workflows
+                .requestMatchers("/api/products/reservations", "/api/products/reservations/**")
+                    .hasAnyRole("USER", "ADMIN", "OWNER", "MANAGER", "SELLER")
+                // Product modifications restricted to ADMIN, OWNER, MANAGER
+                .requestMatchers(HttpMethod.POST, "/api/products").hasAnyRole("ADMIN", "OWNER", "MANAGER")
+                .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("ADMIN", "OWNER", "MANAGER")
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAnyRole("ADMIN", "OWNER", "MANAGER")
+                // Product catalog browsing
+                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**")
+                    .hasAnyRole("USER", "ADMIN", "OWNER", "MANAGER", "SELLER", "VIEWER")
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -86,6 +92,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint(authenticationEntryPoint())
                 .accessDeniedHandler(accessDeniedHandler())
             )
+            .addFilterAfter(tenantContextFilter, BearerTokenAuthenticationFilter.class)
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable);
 

@@ -34,8 +34,11 @@ public class AuthorizationHeaderForwardingFilter implements GlobalFilter, Ordere
                                 exchange.getRequest().getMethod(), exchange.getRequest().getURI().getPath());
                         r.header(HttpHeaders.AUTHORIZATION, authHeader);
                     }
-                    // Strip any client-supplied role headers to prevent header injection/spoofing
+                    // Strip any client-supplied role or tenant headers to prevent header injection/spoofing
                     r.headers(h -> {
+                        h.remove("X-Tenant-Id");
+                        h.remove("X-Tenant-ID");
+                        h.remove("X-TenantId");
                         h.remove("X-Role");
                         h.remove("X-Roles");
                         h.remove("X-User-Role");

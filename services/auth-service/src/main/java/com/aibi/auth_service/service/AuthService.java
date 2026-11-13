@@ -3,7 +3,11 @@ package com.aibi.auth_service.service;
 import com.aibi.auth_service.dto.AuthResponse;
 import com.aibi.auth_service.dto.LoginRequest;
 import com.aibi.auth_service.dto.RegisterRequest;
+import com.aibi.auth_service.dto.TenantSummaryResponse;
+import com.aibi.auth_service.entity.Membership;
+import com.aibi.auth_service.entity.Tenant;
 import com.aibi.auth_service.entity.User;
+import com.aibi.auth_service.repository.MembershipRepository;
 import com.aibi.auth_service.repository.UserRepository;
 import com.aibi.auth_service.security.JwtService;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -11,18 +15,25 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final MembershipRepository membershipRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public AuthService(
             UserRepository userRepository,
+            MembershipRepository membershipRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService) {
         this.userRepository = userRepository;
+        this.membershipRepository = membershipRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -53,7 +64,11 @@ public class AuthService {
                 savedUser.getId(),
                 savedUser.getUsername(),
                 savedUser.getEmail(),
-                savedUser.getRole().name()
+                savedUser.getRole().name(),
+                null,
+                null,
+                null,
+                Collections.emptyList()
         );
     }
 
@@ -69,7 +84,41 @@ public class AuthService {
             throw new BadCredentialsException("Email ou mot de passe incorrect.");
         }
 
-        String token = jwtService.generateToken(user);
+        List<Membership> activeMemberships = membershipRepository.findByUserIdAndStatus(
+                user.getId(),
+                Membership.MembershipStatus.ACTIVE
+        );
+
+        List<TenantSummaryResponse> availableTenants = activeMemberships.stream()
+                .filter(m -> m.getTenant() != null && m.getTenant().getStatus() == Tenant.TenantStatus.ACTIVE)
+                .map(m -> new TenantSummaryResponse(
+                        m.getTenant().getId(),
+                        m.getTenant().getName(),
+                        m.getTenant().getSlug(),
+                        m.getTenant().getStatus().name(),
+                        m.getRole().name()
+                ))
+                .toList();
+
+        UUID activeTenantId = null;
+        String activeTenantSlug = null;
+        String activeTenantRole = null;
+        String token;
+
+        if (!availableTenants.isEmpty()) {
+            TenantSummaryResponse selected = availableTenants.stream()
+                    .filter(t -> "00000000-0000-0000-0000-000000000001".equals(t.id().toString()))
+                    .findFirst()
+                    .orElse(availableTenants.get(0));
+
+            activeTenantId = selected.id();
+            activeTenantSlug = selected.slug();
+            activeTenantRole = selected.role();
+
+            token = jwtService.generateToken(user, activeTenantId, activeTenantSlug, activeTenantRole);
+        } else {
+            token = jwtService.generateToken(user);
+        }
 
         return new AuthResponse(
                 token,
@@ -77,7 +126,11 @@ public class AuthService {
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
-                user.getRole().name()
+                user.getRole().name(),
+                activeTenantId,
+                activeTenantSlug,
+                activeTenantRole,
+                availableTenants
         );
     }
 }
