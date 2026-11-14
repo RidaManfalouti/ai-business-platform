@@ -65,6 +65,14 @@ spring:
               predicates:
                 - Path=/api/analytics, /api/analytics/**
 
+            # ====================================================================
+            # Route : AI Service - Assistant d'entreprise et copilot décisionnel
+            # ====================================================================
+            - id: ai-service
+              uri: ${AI_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/ai, /api/ai/**
+
           globalcors:
             cors-configurations:
               '[/**]':

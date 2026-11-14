@@ -5,3 +5,4 @@ export * from './customer';
 export * from './sale';
 export * from './saga';
 export * from './analytics';
+export * from './ai';
