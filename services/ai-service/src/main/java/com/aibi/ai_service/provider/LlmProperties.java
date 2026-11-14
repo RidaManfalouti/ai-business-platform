@@ -55,7 +55,7 @@ public class LlmProperties {
 
     public static class GeminiConfig {
         private String apiKey = "";
-        private String model = "gemini-1.5-flash";
+        private String model = "gemini-2.5-flash";
         private String baseUrl = "https://generativelanguage.googleapis.com";
 
         public String getApiKey() {
