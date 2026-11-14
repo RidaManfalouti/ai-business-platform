@@ -16,7 +16,8 @@ La plateforme est articulée autour des microservices suivants :
 | **Product Service** | `8082` | *Interne* | Catalogue de produits, inventaire et **réservations atomiques de stock** |
 | **Sales Service** | `8084` | *Interne* | Commandes clients, recalcul serveur, **idempotence** et **Saga compensatoire** |
 | **Analytics Service** | `8085` | *Interne* | Décisionnel, calcul des KPIs certifiés, tendances et alertes de stock faible |
-| **PostgreSQL** | `5432` | `5433` | Base relationnelle multi-bases (`auth_db`, `customer_db`, `product_db`, `sales_db`, `analytics_db`) |
+| **AI Service** | `8086` | *Interne* | Assistant d'entreprise intelligent (Copilot), outils métiers & intégration LLM |
+| **PostgreSQL** | `5432` | `5433` | Base relationnelle multi-bases (`auth_db`, `customer_db`, `product_db`, `sales_db`, `analytics_db`, `ai_db`) |
 | **Redis** | `6379` | `6379` | Cache distribué et sessions |
 | **Prometheus** | `9090` | `9090` | Collecteur de métriques Actuator & TSDB, évaluation des alertes |
 | **Grafana** | `3000` | `3000` | Tableaux de bord unifiés (Platform, Services, Saga Reliability, Stock Reconciliation) |
@@ -379,6 +380,10 @@ Le modèle est minimal, explicite et sécurisé :
 | **analytics-service** | `GET /api/analytics/status-distribution` | `USER`, `ADMIN` | Répartition statistique des commandes par statut |
 | **analytics-service** | `GET /api/analytics/low-stock` | `USER`, `ADMIN` | Alertes de réapprovisionnement et stocks faibles |
 | **analytics-service** | `GET /api/analytics/dashboard` | `USER`, `ADMIN` | Synthèse décisionnelle consolidée pour le tableau de bord |
+| **ai-service** | `POST /api/ai/chat` | `USER`, `ADMIN`, `OWNER`, `MANAGER`, `SELLER`, `VIEWER` | Dialogue interactif et questions analytiques avec le copilot IA |
+| **ai-service** | `GET /api/ai/conversations` | `USER`, `ADMIN`, `OWNER`, `MANAGER`, `SELLER`, `VIEWER` | Historique paginé des conversations IA par locataire/utilisateur |
+| **ai-service** | `GET /api/ai/conversations/{id}` | `USER`, `ADMIN`, `OWNER`, `MANAGER`, `SELLER`, `VIEWER` | Détail complet d'une conversation et de ses messages |
+| **ai-service** | `DELETE /api/ai/conversations/{id}` | `USER`, `ADMIN`, `OWNER`, `MANAGER`, `SELLER`, `VIEWER` | Suppression définitive d'une conversation IA |
 
 > **Propagation du Jeton Bearer :**
 > Lors de la création ou de l'annulation d'une vente, `sales-service` relaie de manière transparente l'en-tête `Authorization: Bearer <token>` du client aux services `product-service` et `customer-service` via un intercepteur `RestClient`. Comme les endpoints de réservation et de vérification client autorisent `USER` et `ADMIN`, le flux commercial s'exécute sans friction avec l'identité de l'utilisateur initiateur.
@@ -825,5 +830,52 @@ curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
    - Prometheus : métriques conservées 15 jours avec un plafond de 10 Go (`--storage.tsdb.retention.time=15d --storage.tsdb.retention.size=10GB`).
    - Loki : politique de rétention configurée à 168 heures (7 jours) avec compaction automatique.
    - Les volumes `prometheus_data`, `grafana_data` et `loki_data` sont persistants et ne sont pas effacés lors d'un `docker compose down`.
+
+---
+
+## 13. AI Business Copilot (Fondation & Architecture)
+
+L'**AI Business Copilot** est un assistant décisionnel d'entreprise intégré à la plateforme permettant aux dirigeants et équipes de poser des questions en langage naturel sur leurs données opérationnelles (ventes, revenus, inventaire, clients).
+
+### 13.1. Principes d'Architecture & Sécurité
+
+1. **Isolation stricte multi-locataires (*Zero Client Trust*) :**
+   L'identité de l'utilisateur (`user_id`) et le locataire (`tenant_id`) sont extraits et vérifiés exclusivement à partir du jeton JWT cryptographiquement signé. Aucune requête cross-tenant n'est possible, et un locataire B ne peut ni consulter ni manipuler les conversations du locataire A.
+2. **Exécution sécurisée d'outils métiers (*Function Calling*) :**
+   Le modèle LLM n'a **aucun accès direct aux bases de données** ni à l'exécution de code arbitraire. Le service IA lui expose un catalogue d'outils prédéfinis (`getSalesSummary`, `getSalesByPeriod`, `getTopSellingProducts`, `getLowStockProducts`, `getTopCustomers`, `compareRevenuePeriods`) qui appellent les APIs REST existantes (`analytics-service`, `customer-service`) en relayant le contexte du locataire.
+3. **Abstraction indépendante des fournisseurs LLM :**
+   Le système supporte Google Gemini (`gemini-1.5-flash`), OpenAI (`gpt-4o-mini`), ainsi qu'un fournisseur `mock` autonome pour le développement hors-ligne et les tests automatisés sans coût ni quota d'API.
+4. **Garde-fous de résilience :**
+   - Limite de 5 boucles d'outils par question pour éliminer tout risque de récursion infinie.
+   - Troncature des réponses à 16 Ko pour protéger la fenêtre de contexte.
+   - Rate limiting par utilisateur/locataire (défaut : 30 requêtes/minute).
+   - Masquage systématique des clés d'API et secrets dans les traces et journaux.
+
+### 13.2. Configuration du Fournisseur LLM
+
+Dans votre fichier `.env` :
+
+```env
+# Fournisseur actif : 'mock' (défaut hors ligne), 'gemini', ou 'openai'
+AI_PROVIDER=mock
+
+# En cas d'utilisation de Google Gemini :
+# AI_PROVIDER=gemini
+# GEMINI_API_KEY=AIzaSy...
+# GEMINI_MODEL=gemini-1.5-flash
+
+# En cas d'utilisation d'OpenAI :
+# AI_PROVIDER=openai
+# OPENAI_API_KEY=sk-...
+# OPENAI_MODEL=gpt-4o-mini
+```
+
+### 13.3. Endpoints REST du Service IA
+
+- `POST /api/ai/chat` : Pose une question à l'assistant (crée ou continue une conversation).
+- `GET /api/ai/conversations` : Liste paginée des conversations de l'utilisateur pour le locataire actif.
+- `GET /api/ai/conversations/{id}` : Consultation détaillée d'une conversation et de ses messages.
+- `DELETE /api/ai/conversations/{id}` : Suppression d'une conversation.
+
 
 

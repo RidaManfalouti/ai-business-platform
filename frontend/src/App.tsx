@@ -12,6 +12,7 @@ import { ProductsPage } from '@/pages/products/ProductsPage';
 import { CustomersPage } from '@/pages/customers/CustomersPage';
 import { SalesPage } from '@/pages/sales/SalesPage';
 import { SaleDetailPage } from '@/pages/sales/SaleDetailPage';
+import { AiChatPage } from '@/pages/ai/AiChatPage';
 import { AdminSagasPage } from '@/pages/admin/AdminSagasPage';
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -40,6 +41,7 @@ export const App: React.FC = () => {
               <Route path="customers" element={<CustomersPage />} />
               <Route path="sales" element={<SalesPage />} />
               <Route path="sales/:id" element={<SaleDetailPage />} />
+              <Route path="ai" element={<AiChatPage />} />
 
               {/* Admin-only routes */}
               <Route

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   X,
   Layers,
+  Bot,
 } from 'lucide-react';
 
 export interface SidebarProps {
@@ -61,6 +62,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <NavLink to="/" end className={navLinkClass} onClick={onClose}>
             <LayoutDashboard className="w-4 h-4 shrink-0" />
             <span>Tableau de bord</span>
+          </NavLink>
+          <NavLink to="/ai" className={navLinkClass} onClick={onClose}>
+            <Bot className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span>Assistant IA Copilot</span>
           </NavLink>
           <NavLink to="/products" className={navLinkClass} onClick={onClose}>
             <Package className="w-4 h-4 shrink-0" />

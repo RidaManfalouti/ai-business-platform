@@ -1,0 +1,120 @@
+package com.aibi.ai_service.config;
+
+import com.aibi.ai_service.security.InternalTokenService;
+import com.aibi.ai_service.security.TenantContext;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import java.time.Duration;
+import java.util.UUID;
+
+@Configuration
+public class RestClientConfig {
+
+    private final InternalTokenService internalTokenService;
+
+    public RestClientConfig(InternalTokenService internalTokenService) {
+        this.internalTokenService = internalTokenService;
+    }
+
+    @Bean
+    public RestClient analyticsRestClient(
+            @Value("${services.analytics-service.url:http://localhost:8085}") String baseUrl,
+            @Value("${services.analytics-service.connect-timeout-ms:3000}") int connectTimeout,
+            @Value("${services.analytics-service.read-timeout-ms:5000}") int readTimeout) {
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
+        factory.setReadTimeout(Duration.ofMillis(readTimeout));
+
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(factory)
+                .requestInterceptor(authHeaderForwardingInterceptor())
+                .build();
+    }
+
+    @Bean
+    public RestClient customerRestClient(
+            @Value("${services.customer-service.url:http://localhost:8083}") String baseUrl,
+            @Value("${services.customer-service.connect-timeout-ms:3000}") int connectTimeout,
+            @Value("${services.customer-service.read-timeout-ms:5000}") int readTimeout) {
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
+        factory.setReadTimeout(Duration.ofMillis(readTimeout));
+
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(factory)
+                .requestInterceptor(authHeaderForwardingInterceptor())
+                .build();
+    }
+
+    @Bean
+    public RestClient salesRestClient(
+            @Value("${services.sales-service.url:http://localhost:8084}") String baseUrl,
+            @Value("${services.sales-service.connect-timeout-ms:3000}") int connectTimeout,
+            @Value("${services.sales-service.read-timeout-ms:5000}") int readTimeout) {
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
+        factory.setReadTimeout(Duration.ofMillis(readTimeout));
+
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(factory)
+                .requestInterceptor(authHeaderForwardingInterceptor())
+                .build();
+    }
+
+    @Bean
+    public RestClient productRestClient(
+            @Value("${services.product-service.url:http://localhost:8082}") String baseUrl,
+            @Value("${services.product-service.connect-timeout-ms:3000}") int connectTimeout,
+            @Value("${services.product-service.read-timeout-ms:5000}") int readTimeout) {
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
+        factory.setReadTimeout(Duration.ofMillis(readTimeout));
+
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(factory)
+                .requestInterceptor(authHeaderForwardingInterceptor())
+                .build();
+    }
+
+    private ClientHttpRequestInterceptor authHeaderForwardingInterceptor() {
+        return (request, body, execution) -> {
+            String correlationId = org.slf4j.MDC.get("correlationId");
+            if (correlationId == null || correlationId.isBlank()) {
+                correlationId = UUID.randomUUID().toString();
+            }
+            request.getHeaders().set("X-Correlation-ID", correlationId);
+
+            RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+            if (attributes instanceof ServletRequestAttributes servletAttributes) {
+                String authHeader = servletAttributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
+                if (authHeader != null && !authHeader.isBlank()) {
+                    request.getHeaders().set(HttpHeaders.AUTHORIZATION, authHeader);
+                    return execution.execute(request, body);
+                }
+            }
+
+            // Fallback to internal service token scoped to the current tenant
+            UUID currentTenant = TenantContext.getRequiredTenantId();
+            String internalToken = internalTokenService.getInternalServiceToken(currentTenant);
+            request.getHeaders().set(HttpHeaders.AUTHORIZATION, "Bearer " + internalToken);
+            return execution.execute(request, body);
+        };
+    }
+}

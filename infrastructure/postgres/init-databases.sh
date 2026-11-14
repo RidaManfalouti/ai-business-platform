@@ -8,7 +8,7 @@ set -e
 
 echo ">>> Initializing microservices databases for ai-business-platform..."
 
-DATABASES=("auth_db" "customer_db" "product_db" "sales_db" "analytics_db")
+DATABASES=("auth_db" "customer_db" "product_db" "sales_db" "analytics_db" "ai_db")
 
 for db in "${DATABASES[@]}"; do
     echo ">>> Ensuring database '$db' exists..."
