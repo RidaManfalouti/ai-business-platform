@@ -60,16 +60,16 @@ export const AdminUsersPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[#27272A]">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#FAFAFA] tracking-tight">
               Gestion des Utilisateurs & Rôles (RBAC)
             </h1>
             <Badge variant="purple">ROLE_ADMIN</Badge>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Attribution des privilèges <code>ROLE_USER</code> et <code>ROLE_ADMIN</code> (microservice <code>auth-service</code>)
+          <p className="text-xs sm:text-sm text-[#A1A1AA] mt-1">
+            Attribution des privilèges <code className="px-1.5 py-0.5 rounded bg-[#202024] text-[#FACC15] font-mono text-xs border border-[#27272A]">ROLE_USER</code> et <code className="px-1.5 py-0.5 rounded bg-[#202024] text-[#A855F7] font-mono text-xs border border-[#27272A]">ROLE_ADMIN</code> (microservice <code className="px-1.5 py-0.5 rounded bg-[#202024] text-[#FAFAFA] font-mono text-xs border border-[#27272A]">auth-service</code>)
           </p>
         </div>
       </div>
@@ -94,14 +94,14 @@ export const AdminUsersPage: React.FC = () => {
       )}
 
       {/* Overview Card */}
-      <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between text-xs text-slate-600">
+      <div className="p-4 bg-[#18181B] rounded-xl border border-[#27272A] shadow-lg flex items-center justify-between text-xs text-[#A1A1AA]">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Matrice RBAC vérifiée : Seuls les comptes <strong>ROLE_ADMIN</strong> peuvent administrer les rôles et le catalogue.</span>
+          <ShieldCheck className="w-4 h-4 text-[#22C55E]" />
+          <span>Matrice RBAC vérifiée : Seuls les comptes <strong className="text-[#FAFAFA]">ROLE_ADMIN</strong> peuvent administrer les rôles et le catalogue.</span>
         </div>
-        <div className="font-semibold">
+        <div className="font-semibold text-[#FAFAFA]">
           Total : {users.length} utilisateur(s)
-          {isFetching && <span className="text-emerald-600 ml-2 font-normal">(actualisation...)</span>}
+          {isFetching && <span className="text-[#FACC15] ml-2 font-normal">(actualisation...)</span>}
         </div>
       </div>
 
@@ -127,29 +127,29 @@ export const AdminUsersPage: React.FC = () => {
 
               return (
                 <TableRow key={u.id}>
-                  <TableCell className="font-mono text-xs text-slate-400">#{u.id}</TableCell>
+                  <TableCell className="font-mono text-xs text-[#71717A]">#{u.id}</TableCell>
                   <TableCell>
-                    <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                    <div className="font-semibold text-[#FAFAFA] flex items-center gap-1.5">
                       {isAdmin ? (
-                        <Shield className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                        <Shield className="w-3.5 h-3.5 text-[#A855F7] shrink-0" />
                       ) : (
-                        <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <User className="w-3.5 h-3.5 text-[#A1A1AA] shrink-0" />
                       )}
                       <span>{u.username}</span>
                       {isCurrentUser && (
-                        <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
+                        <span className="text-[10px] bg-[#202024] text-[#FACC15] px-1.5 py-0.5 rounded font-bold border border-[#27272A]">
                           Vous
                         </span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-slate-600">{u.email}</TableCell>
+                  <TableCell className="text-xs text-[#A1A1AA]">{u.email}</TableCell>
                   <TableCell>
                     <Badge variant={isAdmin ? 'purple' : 'info'} size="sm">
                       {u.role}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs text-slate-400">
+                  <TableCell className="text-xs text-[#71717A]">
                     {formatDate(u.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">

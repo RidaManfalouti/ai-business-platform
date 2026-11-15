@@ -100,13 +100,13 @@ export const SalesPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[#27272A]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#FAFAFA] tracking-tight">
             Ventes & Commandes
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Gestion des commandes clients et compensation de stock par Saga durable (microservice <code>sales-service</code>)
+          <p className="text-xs sm:text-sm text-[#A1A1AA] mt-1">
+            Gestion des commandes clients et compensation de stock par Saga durable (microservice <code className="px-1.5 py-0.5 rounded bg-[#202024] text-[#FACC15] font-mono text-xs border border-[#27272A]">sales-service</code>)
           </p>
         </div>
 
@@ -143,17 +143,17 @@ export const SalesPage: React.FC = () => {
       )}
 
       {/* Filter Tabs Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#18181B] p-3 rounded-xl border border-[#27272A] shadow-lg">
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
           {['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map((status) => (
             <button
               key={status}
               type="button"
               onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 statusFilter === status
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-[#FACC15] text-[#09090B] font-bold shadow-md shadow-yellow-500/10'
+                  : 'bg-[#202024] text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A]'
               }`}
             >
               {status === 'ALL' ? 'Toutes' : status}
@@ -161,10 +161,10 @@ export const SalesPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="text-xs text-slate-500 flex items-center gap-2">
-          {isFetching && <span className="text-emerald-600 font-medium">Actualisation...</span>}
+        <div className="text-xs text-[#A1A1AA] flex items-center gap-2">
+          {isFetching && <span className="text-[#FACC15] font-medium">Actualisation...</span>}
           <span>
-            Total : <strong className="text-slate-800">{totalElements}</strong> commande(s)
+            Total : <strong className="text-[#FAFAFA]">{totalElements}</strong> commande(s)
           </span>
         </div>
       </div>
@@ -180,7 +180,7 @@ export const SalesPage: React.FC = () => {
               ? `Aucune commande avec le statut "${statusFilter}".`
               : 'Aucune commande client n’a encore été passée.'
           }
-          icon={<ShoppingCart className="w-8 h-8 text-slate-400" />}
+          icon={<ShoppingCart className="w-8 h-8 text-[#A1A1AA]" />}
           actionLabel="Créer une première commande"
           onAction={() => setIsCreateOpen(true)}
         />
@@ -205,12 +205,12 @@ export const SalesPage: React.FC = () => {
 
                 return (
                   <TableRow key={sale.id}>
-                    <TableCell className="font-mono font-bold text-slate-900">
-                      <Link to={`/sales/${sale.id}`} className="hover:text-emerald-600 hover:underline">
+                    <TableCell className="font-mono font-bold text-[#FAFAFA]">
+                      <Link to={`/sales/${sale.id}`} className="hover:text-[#FACC15] transition-colors">
                         {sale.reference}
                       </Link>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-600">
+                    <TableCell className="font-mono text-xs text-[#A1A1AA]">
                       Client #{sale.customerId}
                     </TableCell>
                     <TableCell>
@@ -218,20 +218,20 @@ export const SalesPage: React.FC = () => {
                         {badge.label}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-bold text-slate-900">
+                    <TableCell className="font-bold text-[#FAFAFA]">
                       {formatCurrency(sale.totalAmount)}
                     </TableCell>
-                    <TableCell className="text-slate-500 text-xs">
+                    <TableCell className="text-[#A1A1AA] text-xs">
                       {sale.items?.length || 0} ligne(s)
                     </TableCell>
-                    <TableCell className="text-xs text-slate-400">
+                    <TableCell className="text-xs text-[#71717A]">
                       {formatDate(sale.createdAt)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <Link to={`/sales/${sale.id}`}>
                           <Button variant="ghost" size="sm" title="Consulter le détail" aria-label={`Consulter ${sale.reference}`}>
-                            <Eye className="w-4 h-4 text-slate-600" />
+                            <Eye className="w-4 h-4 text-[#A1A1AA] hover:text-[#FAFAFA]" />
                           </Button>
                         </Link>
                         {canCancel && (
@@ -241,9 +241,9 @@ export const SalesPage: React.FC = () => {
                             onClick={() => setSaleToCancel(sale)}
                             title="Annuler cette vente"
                             aria-label={`Annuler ${sale.reference}`}
-                            className="hover:text-rose-600"
+                            className="hover:text-red-400"
                           >
-                            <XCircle className="w-4 h-4 text-rose-500" />
+                            <XCircle className="w-4 h-4 text-red-500 hover:text-red-400" />
                           </Button>
                         )}
                       </div>

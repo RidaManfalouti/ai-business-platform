@@ -145,23 +145,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+          <label className="block text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1.5">
             Description détaillée
           </label>
           <textarea
             rows={3}
             placeholder="Caractéristiques techniques, garantie, dimensions..."
-            className="block w-full rounded-lg border border-slate-300 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 placeholder:text-slate-400"
+            className="block w-full rounded-xl border border-[#27272A] bg-[#18181B] text-[#FAFAFA] text-sm p-3 focus:outline-none focus:border-[#FACC15] focus:ring-1 focus:ring-[#FACC15]/20 placeholder:text-[#71717A] transition-colors"
             {...register('description')}
           />
           {errors.description && (
-            <p className="mt-1 text-xs text-rose-600 font-medium">
+            <p className="mt-1 text-xs text-[#EF4444] font-medium">
               {errors.description.message}
             </p>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#27272A]">
           <Button variant="outline" type="button" onClick={onClose} disabled={isLoading}>
             Annuler
           </Button>

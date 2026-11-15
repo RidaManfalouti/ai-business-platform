@@ -51,24 +51,27 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen bg-[#09090B] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Ambient background glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-b from-[#A855F7]/15 via-[#FACC15]/5 to-transparent blur-3xl pointer-events-none" />
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FACC15] text-[#09090B] font-black shadow-[0_0_25px_rgba(250,204,21,0.35)]">
             <Layers className="w-7 h-7" />
           </div>
         </div>
-        <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-slate-900">
+        <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-[#FAFAFA]">
           AI Business Platform
         </h2>
-        <p className="mt-1 text-center text-xs text-slate-500">
-          Plateforme de gestion commerciale microservices
+        <p className="mt-1 text-center text-xs text-[#A1A1AA]">
+          Plateforme de gestion commerciale microservices pilotée par l'IA
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl shadow-slate-200/60 sm:rounded-2xl sm:px-10 border border-slate-200/80">
-          <h3 className="text-lg font-bold text-slate-900 mb-6">Connexion à votre espace</h3>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        <div className="bg-[#18181B] py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-[#27272A] shadow-[0_25px_60px_rgba(0,0,0,0.8)]">
+          <h3 className="text-lg font-bold text-[#FAFAFA] mb-6">Connexion à votre espace</h3>
 
           {isExpired && (
             <div className="mb-5">
@@ -121,22 +124,22 @@ export const LoginPage: React.FC = () => {
             </div>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-            <p className="text-xs text-slate-500">
+          <div className="mt-6 pt-6 border-t border-[#27272A] text-center">
+            <p className="text-xs text-[#A1A1AA]">
               Pas encore de compte ?{' '}
-              <Link to="/register" className="font-semibold text-emerald-600 hover:text-emerald-700">
+              <Link to="/register" className="font-semibold text-[#FACC15] hover:text-[#EAB308] transition-colors">
                 Créer un compte
               </Link>
             </p>
           </div>
 
           {/* Quick connection tip */}
-          <div className="mt-6 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600 space-y-1">
-            <div className="font-semibold flex items-center gap-1.5 text-slate-700">
-              <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+          <div className="mt-6 p-3.5 bg-[#202024]/60 rounded-xl border border-[#27272A] text-xs text-[#A1A1AA] space-y-1">
+            <div className="font-semibold flex items-center gap-1.5 text-[#FAFAFA]">
+              <ShieldAlert className="w-3.5 h-3.5 text-[#FACC15]" />
               <span>Authentification JWT & Passerelle</span>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-[#71717A]">
               Vous pouvez vous connecter avec votre compte utilisateur ou créer un nouveau compte via
               le lien ci-dessus.
             </p>

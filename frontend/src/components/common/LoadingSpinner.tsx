@@ -20,11 +20,11 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   return (
     <div
-      className={`flex flex-col items-center justify-center p-8 sm:p-12 text-slate-500 ${className}`}
+      className={`flex flex-col items-center justify-center p-8 sm:p-12 text-[#A1A1AA] ${className}`}
       role="status"
     >
-      <Loader2 className={`${sizeStyles} animate-spin text-emerald-600 mb-2.5`} />
-      {label && <p className="text-xs font-medium text-slate-500">{label}</p>}
+      <Loader2 className={`${sizeStyles} animate-spin text-[#FACC15] mb-2.5 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]`} />
+      {label && <p className="text-xs font-medium text-[#A1A1AA]">{label}</p>}
       <span className="sr-only">Chargement...</span>
     </div>
   );

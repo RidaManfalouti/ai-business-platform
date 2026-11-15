@@ -107,7 +107,7 @@ export const SaleDetailPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top back navigation & actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[#27272A]">
         <div className="flex items-center gap-3">
           <Link to="/sales">
             <Button variant="outline" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>
@@ -116,12 +116,12 @@ export const SaleDetailPage: React.FC = () => {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold font-mono text-slate-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold font-mono text-[#FAFAFA] tracking-tight">
                 {sale.reference}
               </h1>
               <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">Commande #{sale.id} • Enregistrée le {formatDate(sale.createdAt)}</p>
+            <p className="text-xs text-[#A1A1AA] mt-0.5">Commande #{sale.id} • Enregistrée le {formatDate(sale.createdAt)}</p>
           </div>
         </div>
 
@@ -181,50 +181,50 @@ export const SaleDetailPage: React.FC = () => {
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Customer Card */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">
-            <User className="w-4 h-4 text-emerald-600" />
+        <div className="bg-[#18181B] p-5 rounded-xl border border-[#27272A] shadow-lg">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider mb-3">
+            <User className="w-4 h-4 text-[#FACC15]" />
             <span>Client associé</span>
           </div>
           {customer ? (
             <div className="space-y-1">
-              <div className="font-bold text-slate-900 text-sm">
+              <div className="font-bold text-[#FAFAFA] text-sm">
                 {customer.firstName} {customer.lastName}
               </div>
-              <div className="text-xs text-slate-500">{customer.email}</div>
+              <div className="text-xs text-[#A1A1AA]">{customer.email}</div>
               {customer.company && (
-                <div className="text-xs text-slate-400 font-medium">{customer.company}</div>
+                <div className="text-xs text-[#71717A] font-medium">{customer.company}</div>
               )}
-              {customer.phone && <div className="text-xs text-slate-400">{customer.phone}</div>}
+              {customer.phone && <div className="text-xs text-[#71717A]">{customer.phone}</div>}
             </div>
           ) : (
-            <div className="text-xs text-slate-500">
-              Identifiant client : <strong>#{sale.customerId}</strong>
+            <div className="text-xs text-[#A1A1AA]">
+              Identifiant client : <strong className="text-[#FAFAFA]">#{sale.customerId}</strong>
             </div>
           )}
         </div>
 
         {/* Total & Amounts */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">
-            <ShoppingBag className="w-4 h-4 text-emerald-600" />
+        <div className="bg-[#18181B] p-5 rounded-xl border border-[#27272A] shadow-lg">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider mb-3">
+            <ShoppingBag className="w-4 h-4 text-[#FACC15]" />
             <span>Montant total</span>
           </div>
-          <div className="text-2xl font-bold text-slate-900">{formatCurrency(sale.totalAmount)}</div>
-          <p className="text-[11px] text-slate-400 mt-1">
+          <div className="text-2xl font-bold font-mono text-[#FACC15]">{formatCurrency(sale.totalAmount)}</div>
+          <p className="text-[11px] text-[#71717A] mt-1">
             Recalculé par sales-service d'après le catalogue de prix
           </p>
         </div>
 
         {/* Saga Lifecycle State */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">
-            <Clock className="w-4 h-4 text-emerald-600" />
+        <div className="bg-[#18181B] p-5 rounded-xl border border-[#27272A] shadow-lg">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider mb-3">
+            <Clock className="w-4 h-4 text-[#A855F7]" />
             <span>Cycle de vie & Saga</span>
           </div>
-          <div className="text-xs space-y-1 text-slate-600">
+          <div className="text-xs space-y-1.5 text-[#A1A1AA]">
             <div>
-              Statut commande : <strong>{sale.status}</strong>
+              Statut commande : <strong className="text-[#FAFAFA]">{sale.status}</strong>
             </div>
             <div>
               Date de création : <span>{formatDate(sale.createdAt)}</span>
@@ -239,16 +239,16 @@ export const SaleDetailPage: React.FC = () => {
       </div>
 
       {/* Items Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="text-sm font-bold text-slate-900">
+      <div className="bg-[#18181B] rounded-xl border border-[#27272A] shadow-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-[#27272A] bg-[#202024]/60">
+          <h3 className="text-sm font-bold text-[#FAFAFA]">
             Articles de la commande ({sale.items?.length || 0})
           </h3>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600 divide-y divide-slate-100">
-            <thead className="bg-slate-50 text-[11px] font-semibold uppercase text-slate-500">
+          <table className="w-full text-left text-xs text-[#A1A1AA] divide-y divide-[#27272A]">
+            <thead className="bg-[#131316] text-[11px] font-semibold uppercase text-[#A1A1AA]">
               <tr>
                 <th className="px-6 py-3">Ligne #</th>
                 <th className="px-6 py-3">Réf. Produit</th>
@@ -258,28 +258,28 @@ export const SaleDetailPage: React.FC = () => {
                 <th className="px-6 py-3 text-right">Sous-total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#27272A]">
               {sale.items?.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="px-6 py-3.5 font-mono text-slate-400">#{item.id}</td>
-                  <td className="px-6 py-3.5 font-mono text-slate-600">#{item.productId}</td>
-                  <td className="px-6 py-3.5 font-semibold text-slate-900">
+                <tr key={item.id} className="hover:bg-[#202024]/50 transition-colors">
+                  <td className="px-6 py-3.5 font-mono text-[#71717A]">#{item.id}</td>
+                  <td className="px-6 py-3.5 font-mono text-[#A1A1AA]">#{item.productId}</td>
+                  <td className="px-6 py-3.5 font-semibold text-[#FAFAFA]">
                     {item.productNameSnapshot}
                   </td>
                   <td className="px-6 py-3.5">{formatCurrency(item.unitPrice)}</td>
-                  <td className="px-6 py-3.5 text-center font-bold">{item.quantity}</td>
-                  <td className="px-6 py-3.5 text-right font-bold text-slate-900">
+                  <td className="px-6 py-3.5 text-center font-bold text-[#FAFAFA]">{item.quantity}</td>
+                  <td className="px-6 py-3.5 text-right font-mono font-bold text-[#FAFAFA]">
                     {formatCurrency(item.lineTotal)}
                   </td>
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-slate-50/80 font-bold text-slate-900 border-t border-slate-200">
+            <tfoot className="bg-[#131316] font-bold text-[#FAFAFA] border-t border-[#27272A]">
               <tr>
-                <td colSpan={5} className="px-6 py-3.5 text-right uppercase text-[11px] text-slate-500">
+                <td colSpan={5} className="px-6 py-3.5 text-right uppercase text-[11px] text-[#A1A1AA]">
                   Total TTC
                 </td>
-                <td className="px-6 py-3.5 text-right text-base text-emerald-700">
+                <td className="px-6 py-3.5 text-right font-mono text-base text-[#FACC15]">
                   {formatCurrency(sale.totalAmount)}
                 </td>
               </tr>

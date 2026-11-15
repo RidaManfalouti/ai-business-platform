@@ -71,23 +71,26 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen bg-[#09090B] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Ambient background glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-b from-[#A855F7]/15 via-[#FACC15]/5 to-transparent blur-3xl pointer-events-none" />
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FACC15] text-[#09090B] font-black shadow-[0_0_25px_rgba(250,204,21,0.35)]">
             <Layers className="w-7 h-7" />
           </div>
         </div>
-        <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-slate-900">
+        <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-[#FAFAFA]">
           Créer un compte
         </h2>
-        <p className="mt-1 text-center text-xs text-slate-500">
+        <p className="mt-1 text-center text-xs text-[#A1A1AA]">
           Rejoignez la plateforme AI Business Platform
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl shadow-slate-200/60 sm:rounded-2xl sm:px-10 border border-slate-200/80">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        <div className="bg-[#18181B] py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-[#27272A] shadow-[0_25px_60px_rgba(0,0,0,0.8)]">
           {serverError && (
             <div className="mb-5">
               <Alert variant="error" title="Erreur d'inscription">
@@ -151,10 +154,10 @@ export const RegisterPage: React.FC = () => {
             </div>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-            <p className="text-xs text-slate-500">
+          <div className="mt-6 pt-6 border-t border-[#27272A] text-center">
+            <p className="text-xs text-[#A1A1AA]">
               Vous avez déjà un compte ?{' '}
-              <Link to="/login" className="font-semibold text-emerald-600 hover:text-emerald-700">
+              <Link to="/login" className="font-semibold text-[#FACC15] hover:text-[#EAB308] transition-colors">
                 Se connecter
               </Link>
             </p>

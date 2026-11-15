@@ -150,12 +150,12 @@ export const CustomersPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-[#27272A]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#FAFAFA] tracking-tight">
             Gestion des Clients
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-[#A1A1AA] mt-1">
             Fichiers clients, coordonnées et historique de commandes (microservice <code>customer-service</code>)
           </p>
         </div>
@@ -185,7 +185,7 @@ export const CustomersPage: React.FC = () => {
       )}
 
       {/* Filter / Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#18181B] p-3.5 rounded-2xl border border-[#27272A] shadow-xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Rechercher par nom ou email..."
@@ -195,10 +195,10 @@ export const CustomersPage: React.FC = () => {
           />
         </div>
 
-        <div className="text-xs text-slate-500 flex items-center gap-2">
-          {isFetching && <span className="text-emerald-600 font-medium">Actualisation...</span>}
+        <div className="text-xs text-[#A1A1AA] flex items-center gap-2">
+          {isFetching && <span className="text-[#FACC15] font-medium">Actualisation...</span>}
           <span>
-            Total : <strong className="text-slate-800">{totalElements}</strong> client(s)
+            Total : <strong className="text-[#FAFAFA]">{totalElements}</strong> client(s)
           </span>
         </div>
       </div>
@@ -214,7 +214,7 @@ export const CustomersPage: React.FC = () => {
               ? `Aucun résultat pour la recherche "${debouncedSearch}".`
               : 'Aucun profil client enregistré.'
           }
-          icon={<Users className="w-8 h-8 text-slate-400" />}
+          icon={<Users className="w-8 h-8 text-[#71717A]" />}
           actionLabel="Créer un client"
           onAction={handleOpenCreate}
         />
@@ -234,35 +234,35 @@ export const CustomersPage: React.FC = () => {
             <TableBody>
               {customers.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell className="font-mono text-xs text-slate-400">#{c.id}</TableCell>
+                  <TableCell className="font-mono text-xs text-[#71717A]">#{c.id}</TableCell>
                   <TableCell>
-                    <div className="font-semibold text-slate-900">
+                    <div className="font-semibold text-[#FAFAFA]">
                       {c.firstName} {c.lastName}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-700">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
+                    <div className="flex items-center gap-1.5 text-xs text-[#FAFAFA]">
+                      <Mail className="w-3.5 h-3.5 text-[#71717A]" />
                       <span>{c.email}</span>
                     </div>
                     {c.phone && (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
-                        <Phone className="w-3.5 h-3.5 text-slate-400" />
+                      <div className="flex items-center gap-1.5 text-xs text-[#71717A] mt-0.5">
+                        <Phone className="w-3.5 h-3.5 text-[#71717A]" />
                         <span>{c.phone}</span>
                       </div>
                     )}
                   </TableCell>
                   <TableCell>
                     {c.company ? (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-700">
-                        <Building className="w-3.5 h-3.5 text-slate-400" />
+                      <div className="flex items-center gap-1.5 text-xs text-[#FAFAFA]">
+                        <Building className="w-3.5 h-3.5 text-[#A855F7]" />
                         <span className="font-medium">{c.company}</span>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400 italic">Particulier</span>
+                      <span className="text-xs text-[#71717A] italic">Particulier</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs text-slate-400">
+                  <TableCell className="text-xs text-[#71717A]">
                     {formatDate(c.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
@@ -274,7 +274,7 @@ export const CustomersPage: React.FC = () => {
                         title="Consulter l'historique d'achats"
                         aria-label={`Historique de ${c.firstName} ${c.lastName}`}
                       >
-                        <ShoppingBag className="w-3.5 h-3.5 text-slate-600" />
+                        <ShoppingBag className="w-3.5 h-3.5 text-[#A1A1AA] hover:text-[#FAFAFA]" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -283,7 +283,7 @@ export const CustomersPage: React.FC = () => {
                         title="Modifier les coordonnées"
                         aria-label={`Modifier ${c.firstName} ${c.lastName}`}
                       >
-                        <Edit2 className="w-3.5 h-3.5 text-slate-600" />
+                        <Edit2 className="w-3.5 h-3.5 text-[#A1A1AA] hover:text-[#FAFAFA]" />
                       </Button>
                       {isAdmin && (
                         <Button
@@ -292,9 +292,9 @@ export const CustomersPage: React.FC = () => {
                           onClick={() => setCustomerToDelete(c)}
                           title="Supprimer ce client"
                           aria-label={`Supprimer ${c.firstName} ${c.lastName}`}
-                          className="hover:text-rose-600"
+                          className="hover:text-[#EF4444]"
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                          <Trash2 className="w-3.5 h-3.5 text-[#EF4444]" />
                         </Button>
                       )}
                     </div>
@@ -338,28 +338,28 @@ export const CustomersPage: React.FC = () => {
           {loadingSales ? (
             <LoadingSpinner label="Récupération de l'historique des ventes..." />
           ) : !customerSales?.content || customerSales.content.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">
+            <div className="p-8 text-center text-xs text-[#71717A]">
               Aucune commande enregistrée pour ce client.
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="text-xs text-slate-500 font-medium">
+              <div className="text-xs text-[#A1A1AA] font-medium">
                 {customerSales.content.length} commande(s) trouvée(s) :
               </div>
-              <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto border border-slate-200 rounded-lg">
+              <div className="divide-y divide-[#27272A] max-h-80 overflow-y-auto border border-[#27272A] rounded-xl bg-[#18181B]">
                 {customerSales.content.map((sale: SaleResponse) => {
                   const badge = getSaleStatusBadge(sale.status);
                   return (
-                    <div key={sale.id} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50">
+                    <div key={sale.id} className="p-3.5 flex items-center justify-between text-xs hover:bg-[#202024] transition-colors">
                       <div>
-                        <div className="font-mono font-bold text-slate-900">{sale.reference}</div>
-                        <div className="text-slate-400 text-[11px] mt-0.5">{formatDate(sale.createdAt)}</div>
+                        <div className="font-mono font-bold text-[#FACC15]">{sale.reference}</div>
+                        <div className="text-[#71717A] text-[11px] mt-0.5">{formatDate(sale.createdAt)}</div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge variant={badge.variant} size="sm">
                           {badge.label}
                         </Badge>
-                        <div className="font-bold text-slate-900">{formatCurrency(sale.totalAmount)}</div>
+                        <div className="font-bold text-[#FAFAFA]">{formatCurrency(sale.totalAmount)}</div>
                       </div>
                     </div>
                   );
