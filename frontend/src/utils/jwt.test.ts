@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decodeJwt, isTokenExpired, extractRoleFromToken, extractTenantFromToken } from './jwt';
+import { decodeJwt, isTokenExpired, getTokenRemainingSeconds, extractRoleFromToken, extractTenantFromToken } from './jwt';
 
 describe('jwt utility', () => {
   // A test helper creating simple base64url encoded JWTs
@@ -36,6 +36,8 @@ describe('jwt utility', () => {
 
     expect(isTokenExpired(expiredToken)).toBe(true);
     expect(isTokenExpired(futureToken)).toBe(false);
+    expect(getTokenRemainingSeconds(expiredToken)).toBe(0);
+    expect(getTokenRemainingSeconds(futureToken)).toBeGreaterThan(3500);
   });
 
   it('should extract ADMIN role when present in claims', () => {

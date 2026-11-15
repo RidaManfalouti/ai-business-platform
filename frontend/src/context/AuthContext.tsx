@@ -11,7 +11,7 @@ import {
 } from '@/types/auth';
 import { authApi } from '@/api/authApi';
 import { TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/api/client';
-import { extractRoleFromToken, extractTenantFromToken, isTokenExpired } from '@/utils/jwt';
+import { extractRoleFromToken, extractTenantFromToken, isTokenExpired, getTokenRemainingSeconds } from '@/utils/jwt';
 import { queryClient } from '@/queryClient';
 
 interface AuthContextType {
@@ -24,9 +24,12 @@ interface AuthContextType {
   activeTenantSlug: string | null;
   activeTenantRole: TenantRole | null;
   availableTenants: TenantMembership[];
+  sessionRemainingSeconds: number | null;
+  isSessionExpiringSoon: boolean;
   login: (credentials: LoginRequest) => Promise<AuthResponse>;
   register: (data: RegisterRequest) => Promise<AuthResponse>;
   logout: () => void;
+  expireSessionNow: () => void;
   refreshUser: () => Promise<void>;
   switchTenant: (tenantId: string) => Promise<void>;
   createTenant: (name: string, slug?: string) => Promise<Tenant>;
@@ -61,6 +64,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [availableTenants, setAvailableTenants] = useState<TenantMembership[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number | null>(() => {
+    try {
+      const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
+      return stored ? getTokenRemainingSeconds(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const logout = useCallback(() => {
     try {
@@ -72,8 +83,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     setAvailableTenants([]);
+    setSessionRemainingSeconds(null);
     queryClient.clear();
   }, []);
+
+  const expireSessionNow = useCallback(() => {
+    logout();
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login?expired=true';
+    }
+  }, [logout]);
+
+  // Active interval to monitor JWT expiration every 5 seconds
+  useEffect(() => {
+    if (!token) {
+      setSessionRemainingSeconds(null);
+      return;
+    }
+
+    const checkExpiration = () => {
+      const remaining = getTokenRemainingSeconds(token);
+      setSessionRemainingSeconds(remaining);
+
+      if (remaining <= 0 || isTokenExpired(token)) {
+        logout();
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login?expired=true';
+        }
+      }
+    };
+
+    checkExpiration();
+    const interval = setInterval(checkExpiration, 5000);
+    return () => clearInterval(interval);
+  }, [token, logout]);
 
   const loadTenants = useCallback(async () => {
     try {
@@ -228,6 +271,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const activeTenantSlug = user?.activeTenantSlug ?? null;
   const activeTenantRole = user?.activeTenantRole ?? null;
 
+  const isSessionExpiringSoon =
+    sessionRemainingSeconds !== null && sessionRemainingSeconds > 0 && sessionRemainingSeconds <= 300;
+
   return (
     <AuthContext.Provider
       value={{
@@ -240,9 +286,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeTenantSlug,
         activeTenantRole,
         availableTenants,
+        sessionRemainingSeconds,
+        isSessionExpiringSoon,
         login,
         register,
         logout,
+        expireSessionNow,
         refreshUser,
         switchTenant,
         createTenant,

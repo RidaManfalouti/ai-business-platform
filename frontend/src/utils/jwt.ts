@@ -42,6 +42,18 @@ export function isTokenExpired(token: string): boolean {
 }
 
 /**
+ * Returns remaining seconds until token expiration, or 0 if expired.
+ */
+export function getTokenRemainingSeconds(token: string): number {
+  const decoded = decodeJwt(token);
+  if (!decoded || !decoded.exp) {
+    return 0;
+  }
+  const currentTimeSeconds = Math.floor(Date.now() / 1000);
+  return Math.max(0, decoded.exp - currentTimeSeconds);
+}
+
+/**
  * Extracts normalized role ('ADMIN' | 'USER') from token claims.
  */
 export function extractRoleFromToken(token: string): UserRole {
