@@ -43,20 +43,21 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorResponse>) => {
     if (error.response?.status === 401) {
-      try {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
-        localStorage.removeItem(USER_STORAGE_KEY);
-      } catch {
-        // ignore
-      }
+      const isAuthEndpoint = !!error.config?.url?.includes('/api/auth/');
+      const isLoginPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/login');
 
-      // Avoid looping if already on login or auth endpoint
-      if (
-        typeof window !== 'undefined' &&
-        !window.location.pathname.startsWith('/login') &&
-        !error.config?.url?.includes('/api/auth/')
-      ) {
-        window.location.href = '/login?expired=true';
+      // Only purge token and redirect if it's an authenticated business API call that failed with 401
+      if (!isAuthEndpoint && !isLoginPage) {
+        try {
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+          localStorage.removeItem(USER_STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login?expired=true';
+        }
       }
     }
 

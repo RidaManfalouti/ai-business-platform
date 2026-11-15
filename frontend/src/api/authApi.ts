@@ -48,12 +48,20 @@ export const authApi = {
   },
 
   getMyTenants: async (): Promise<TenantMembership[]> => {
-    const response = await apiClient.get<TenantMembership[]>('/api/auth/tenants/me');
-    return response.data;
+    const response = await apiClient.get<Array<Record<string, unknown>>>('/api/auth/tenants');
+    return (response.data || []).map((t) => ({
+      tenantId: String(t.tenantId || t.id || ''),
+      tenantName: String(t.tenantName || t.name || ''),
+      tenantSlug: String(t.tenantSlug || t.slug || ''),
+      role: (t.role as TenantRole) || 'VIEWER',
+      status: (t.status as 'ACTIVE' | 'INVITED' | 'SUSPENDED') || 'ACTIVE',
+    }));
   },
 
   switchTenant: async (request: SwitchTenantRequest): Promise<SwitchTenantResponse> => {
-    const response = await apiClient.post<SwitchTenantResponse>('/api/auth/switch-tenant', request);
+    const response = await apiClient.post<SwitchTenantResponse>(
+      `/api/auth/tenants/${request.tenantId}/switch`
+    );
     return response.data;
   },
 

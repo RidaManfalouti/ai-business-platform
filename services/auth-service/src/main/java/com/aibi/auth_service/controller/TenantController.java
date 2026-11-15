@@ -46,7 +46,7 @@ public class TenantController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping
+    @GetMapping({"", "/me"})
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<TenantSummaryResponse>> getMyTenants(Authentication authentication) {
         Long userId = getAuthenticatedUserId(authentication);
