@@ -89,12 +89,12 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Welcome & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-[#27272A]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#FAFAFA] tracking-tight">
             Tableau de Bord Analytique
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-[#A1A1AA] mt-1">
             Indicateurs décisionnels certifiés en temps réel via le microservice d'analytique (port 8085)
           </p>
         </div>
@@ -114,11 +114,11 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Period Filter & Timezone Bar */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span className="text-xs font-semibold text-slate-700">Période d'analyse :</span>
-          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
+      <div className="bg-[#18181B] p-3 sm:p-4 rounded-2xl border border-[#27272A] shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Calendar className="w-4 h-4 text-[#FACC15] shrink-0" />
+          <span className="text-xs font-semibold text-[#A1A1AA]">Période d'analyse :</span>
+          <div className="flex items-center gap-1 bg-[#202024] p-1 rounded-xl border border-[#27272A]">
             {(
               [
                 { id: '7d', label: '7 jours' },
@@ -131,10 +131,10 @@ export const DashboardPage: React.FC = () => {
                 key={item.id}
                 type="button"
                 onClick={() => setPeriod(item.id)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
                   period === item.id
-                    ? 'bg-white text-emerald-700 shadow-xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#FACC15] text-[#09090B] font-bold shadow-[0_0_12px_rgba(250,204,21,0.25)]'
+                    : 'text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272E]'
                 }`}
               >
                 {item.label}
@@ -143,15 +143,15 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+        <div className="flex items-center gap-2 text-xs text-[#A1A1AA]">
+          <span className="font-mono bg-[#202024] px-2.5 py-1 rounded-lg border border-[#27272A] text-[#FAFAFA]">
             {fromDate} &rarr; {toDate}
           </span>
-          <span className="text-[11px] text-slate-400">({timezone})</span>
+          <span className="text-[11px] text-[#71717A]">({timezone})</span>
           <button
             type="button"
             onClick={() => refetchDashboard()}
-            className="p-1 hover:bg-slate-100 rounded text-slate-500 transition-colors"
+            className="p-1.5 hover:bg-[#202024] rounded-lg text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
             title="Actualiser les données"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -168,7 +168,7 @@ export const DashboardPage: React.FC = () => {
               Les métriques consolidées ne peuvent pas être affichées pour garantir l'intégrité des données
               (aucun chiffre fictif n'est présenté).
               {rawDashboardError instanceof Error && (
-                <span className="block mt-1 font-mono text-[11px] text-rose-700">
+                <span className="block mt-1 font-mono text-[11px] text-[#EF4444]">
                   {rawDashboardError.message}
                 </span>
               )}
@@ -189,86 +189,123 @@ export const DashboardPage: React.FC = () => {
         <LoadingSpinner label="Calcul des métriques et agrégations SQL en direct..." />
       ) : kpi ? (
         <>
+          {/* AI Intelligent Insights Banner */}
+          <div className="rounded-2xl p-4 sm:p-5 border border-[#A855F7]/30 bg-gradient-to-r from-[#A855F7]/15 via-[#18181B] to-[#FACC15]/10 shadow-[0_0_30px_rgba(168,85,247,0.12)] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-[#A855F7]/20 text-[#A855F7] border border-[#A855F7]/40 shadow-[0_0_15px_rgba(168,85,247,0.3)] shrink-0">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#A855F7]">
+                    Insights IA Décisionnels
+                  </span>
+                  <Badge variant="purple" size="sm">
+                    Temps Réel
+                  </Badge>
+                </div>
+                <p className="text-xs sm:text-sm text-[#FAFAFA] mt-1 leading-relaxed">
+                  Activité commerciale soutenue sur la période avec un panier moyen de <strong className="text-[#FAFAFA]">{formatCurrency(kpi.averageOrderValue)}</strong> ({kpi.completedSalesCount} commandes finalisées).{' '}
+                  {lowStock && lowStock.lowStockCount > 0 ? (
+                    <span className="text-[#EF4444] font-medium">
+                      Attention : {lowStock.lowStockCount} référence(s) sont sous le seuil critique de stock.
+                    </span>
+                  ) : (
+                    <span className="text-emerald-400 font-medium">
+                      La chaîne logistique est nominale sans rupture critique.
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <Link to="/ai" className="shrink-0">
+              <Button variant="ai" size="sm" icon={<Activity className="w-4 h-4" />}>
+                Explorer avec l'IA Copilot
+              </Button>
+            </Link>
+          </div>
+
           {/* KPI Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* KPI 1: Realized Revenue */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors">
+            <div className="bg-[#18181B] p-5 rounded-2xl border border-[#27272A] shadow-xs hover:border-[#FACC15]/40 transition-all hover:scale-[1.01] hover:shadow-[0_0_20px_rgba(250,204,21,0.1)]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">
                   Chiffre d'Affaires
                 </span>
-                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                <div className="p-2.5 bg-[#FACC15]/15 text-[#FACC15] rounded-xl border border-[#FACC15]/20">
                   <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-3">
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="text-2xl font-bold text-[#FACC15] tracking-tight drop-shadow-[0_0_10px_rgba(250,204,21,0.2)]">
                   {formatCurrency(kpi.totalRevenue)}
                 </div>
-                <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#A1A1AA]">
                   <span>Ventes COMPLETED</span>
-                  <span className="font-semibold text-emerald-600">Devise : {kpi.currency}</span>
+                  <span className="font-semibold text-[#FACC15]">Devise : {kpi.currency}</span>
                 </div>
               </div>
             </div>
 
             {/* KPI 2: Completed Orders */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors">
+            <div className="bg-[#18181B] p-5 rounded-2xl border border-[#27272A] shadow-xs hover:border-[#A855F7]/40 transition-all hover:scale-[1.01] hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">
                   Commandes Finalisées
                 </span>
-                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                <div className="p-2.5 bg-[#A855F7]/15 text-[#A855F7] rounded-xl border border-[#A855F7]/20">
                   <ShoppingCart className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-3">
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="text-2xl font-bold text-[#FAFAFA] tracking-tight">
                   {kpi.completedSalesCount}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500">
+                <div className="mt-1.5 text-[11px] text-[#71717A]">
                   sur {kpi.totalSalesCount} commandes enregistrées
                 </div>
               </div>
             </div>
 
             {/* KPI 3: Average Order Value */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors">
+            <div className="bg-[#18181B] p-5 rounded-2xl border border-[#27272A] shadow-xs hover:border-[#3F3F46] transition-all hover:scale-[1.01]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">
                   Panier Moyen (AOV)
                 </span>
-                <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                <div className="p-2.5 bg-[#202024] text-[#FACC15] rounded-xl border border-[#27272A]">
                   <Award className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-3">
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="text-2xl font-bold text-[#FAFAFA] tracking-tight">
                   {formatCurrency(kpi.averageOrderValue)}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-400">
+                <div className="mt-1.5 text-[11px] text-[#71717A]">
                   Par commande finalisée
                 </div>
               </div>
             </div>
 
             {/* KPI 4: Customers */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors">
+            <div className="bg-[#18181B] p-5 rounded-2xl border border-[#27272A] shadow-xs hover:border-sky-500/40 transition-all hover:scale-[1.01]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">
                   Clients CRM
                 </span>
-                <div className="p-2 bg-sky-50 text-sky-600 rounded-lg">
+                <div className="p-2.5 bg-sky-500/15 text-sky-400 rounded-xl border border-sky-500/20">
                   <Users className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-3">
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="text-2xl font-bold text-[#FAFAFA] tracking-tight">
                   {kpi.totalCustomers}
                 </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                <div className="mt-1.5 flex items-center justify-between text-xs text-[#A1A1AA]">
                   <span>Portefeuille client</span>
-                  <Link to="/customers" className="text-sky-600 font-semibold hover:underline">
+                  <Link to="/customers" className="text-sky-400 font-semibold hover:underline">
                     Gérer &rarr;
                   </Link>
                 </div>
@@ -276,22 +313,22 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* KPI 5: Catalog Products */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors">
+            <div className="bg-[#18181B] p-5 rounded-2xl border border-[#27272A] shadow-xs hover:border-teal-500/40 transition-all hover:scale-[1.01]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">
                   Catalogue & Stock
                 </span>
-                <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
+                <div className="p-2.5 bg-teal-500/15 text-teal-400 rounded-xl border border-teal-500/20">
                   <Package className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-3">
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="text-2xl font-bold text-[#FAFAFA] tracking-tight">
                   {kpi.totalProducts}
                 </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                <div className="mt-1.5 flex items-center justify-between text-xs text-[#A1A1AA]">
                   <span>Références actives</span>
-                  <Link to="/products" className="text-teal-600 font-semibold hover:underline">
+                  <Link to="/products" className="text-teal-400 font-semibold hover:underline">
                     Détails &rarr;
                   </Link>
                 </div>
@@ -302,21 +339,23 @@ export const DashboardPage: React.FC = () => {
           {/* Trends & Status Distribution Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Daily Trends Chart (2 cols) */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-xs p-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-sm font-bold text-slate-900">
+            <div className="lg:col-span-2 bg-[#18181B] rounded-2xl border border-[#27272A] shadow-xs p-5">
+              <div className="flex items-center justify-between border-b border-[#27272A] pb-3 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-[#FACC15]/15 text-[#FACC15]">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-[#FAFAFA]">
                     Évolution du Chiffre d'Affaires Réalisé
                   </h3>
                 </div>
-                <span className="text-xs font-semibold text-slate-500">
+                <span className="text-xs font-semibold text-[#FACC15]">
                   Total : {formatCurrency(trends?.totalPeriodRevenue ?? 0)} ({trends?.totalPeriodOrders ?? 0} cmd)
                 </span>
               </div>
 
               {!trends || trends.trends.length === 0 ? (
-                <div className="py-12 text-center text-xs text-slate-400">
+                <div className="py-12 text-center text-xs text-[#71717A]">
                   Aucune vente finalisée (COMPLETED) enregistrée sur la période sélectionnée ({fromDate} à {toDate}).
                 </div>
               ) : (
@@ -331,73 +370,73 @@ export const DashboardPage: React.FC = () => {
                           className="flex-1 flex flex-col items-center group relative h-full justify-end"
                         >
                           {/* Tooltip on hover */}
-                          <div className="absolute -top-10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-md z-10 whitespace-nowrap">
-                            <span className="font-semibold">{pt.date}</span> : {formatCurrency(pt.revenue)} ({pt.orderCount} cmd)
+                          <div className="absolute -top-10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bg-[#202024] text-[#FAFAFA] border border-[#27272A] text-[10px] px-2.5 py-1 rounded-lg shadow-xl z-10 whitespace-nowrap">
+                            <span className="font-semibold text-[#FACC15]">{pt.date}</span> : {formatCurrency(pt.revenue)} ({pt.orderCount} cmd)
                           </div>
                           {/* Bar */}
                           <div
                             style={{ height: `${heightPercent}%` }}
-                            className="w-full bg-emerald-500 hover:bg-emerald-600 rounded-t-sm transition-all"
+                            className="w-full bg-[#FACC15] hover:bg-[#EAB308] rounded-t-md transition-all shadow-[0_0_10px_rgba(250,204,21,0.2)]"
                           />
                           {/* Date label */}
-                          <span className="text-[9px] text-slate-400 mt-1 truncate max-w-full">
+                          <span className="text-[9px] text-[#71717A] mt-1.5 truncate max-w-full font-mono">
                             {pt.date.slice(5)}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-100 pt-2">
+                  <div className="flex items-center justify-between text-[11px] text-[#71717A] border-t border-[#27272A] pt-2.5">
                     <span>* Calculé strictement sur les commandes au statut COMPLETED</span>
-                    <span>Montants en {kpi.currency}</span>
+                    <span className="text-[#A1A1AA]">Montants en {kpi.currency}</span>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Sales Status Breakdown (1 col) */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between">
+            <div className="bg-[#18181B] rounded-2xl border border-[#27272A] shadow-xs p-5 flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                  <h3 className="text-sm font-bold text-slate-900">
+                <div className="flex items-center justify-between border-b border-[#27272A] pb-3 mb-4">
+                  <h3 className="text-sm font-bold text-[#FAFAFA]">
                     Distribution des Statuts
                   </h3>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-[#71717A]">
                     {statusDistribution?.totalOrders ?? 0} commandes
                   </span>
                 </div>
 
                 <div className="space-y-3.5">
                   {statusDistribution?.distribution.map((item) => {
-                    let progressColor = 'bg-slate-400';
+                    let progressColor = 'bg-[#71717A]';
                     let IconComponent = Clock;
 
                     if (item.status === 'COMPLETED') {
-                      progressColor = 'bg-emerald-500';
+                      progressColor = 'bg-emerald-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
                       IconComponent = CheckCircle;
                     } else if (item.status === 'CONFIRMED') {
-                      progressColor = 'bg-sky-500';
+                      progressColor = 'bg-sky-500 shadow-[0_0_10px_rgba(56,189,248,0.3)]';
                       IconComponent = CheckCircle;
                     } else if (item.status === 'PENDING') {
-                      progressColor = 'bg-amber-500';
+                      progressColor = 'bg-[#FACC15] shadow-[0_0_10px_rgba(250,204,21,0.3)]';
                       IconComponent = Clock;
                     } else if (item.status === 'CANCELLED') {
-                      progressColor = 'bg-rose-500';
+                      progressColor = 'bg-[#EF4444] shadow-[0_0_10px_rgba(239,68,68,0.3)]';
                       IconComponent = Ban;
                     }
 
                     return (
-                      <div key={item.status} className="space-y-1">
+                      <div key={item.status} className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                          <span className="flex items-center gap-1.5 font-medium text-[#A1A1AA]">
                             <IconComponent className="w-3.5 h-3.5" />
                             {item.status}
                           </span>
-                          <span className="font-semibold text-slate-900">
+                          <span className="font-semibold text-[#FAFAFA]">
                             {item.count} ({item.percentage}%)
                           </span>
                         </div>
-                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="w-full h-2 bg-[#202024] rounded-full overflow-hidden">
                           <div
                             className={`h-full ${progressColor} transition-all duration-300`}
                             style={{ width: `${Math.min(100, item.percentage)}%` }}
@@ -409,7 +448,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-5 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
+              <div className="mt-5 pt-3 border-t border-[#27272A] text-[11px] text-[#71717A]">
                 Seules les commandes <strong>COMPLETED</strong> contribuent au Chiffre d'Affaires réalisé.
               </div>
             </div>
@@ -418,43 +457,45 @@ export const DashboardPage: React.FC = () => {
           {/* Top Selling Products & Low Stock Alerts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Top Products */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="bg-[#18181B] rounded-2xl border border-[#27272A] shadow-xs overflow-hidden">
+              <div className="p-4 sm:p-5 border-b border-[#27272A] flex items-center justify-between bg-[#202024]/30">
                 <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-sm font-bold text-slate-900">
+                  <div className="p-1.5 rounded-lg bg-[#A855F7]/15 text-[#A855F7]">
+                    <Award className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-[#FAFAFA]">
                     Meilleures Ventes (Top Produits)
                   </h3>
                 </div>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-[#71717A]">
                   {topProducts?.totalQuantitySold ?? 0} unités vendues
                 </span>
               </div>
 
               {!topProducts || topProducts.items.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400">
+                <div className="p-8 text-center text-xs text-[#71717A]">
                   Aucun article vendu sur cette période.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-600 divide-y divide-slate-100">
-                    <thead className="bg-slate-50/70 text-[11px] font-semibold uppercase text-slate-500">
+                  <table className="w-full text-left text-xs text-[#A1A1AA] divide-y divide-[#27272A]">
+                    <thead className="bg-[#131316] text-[11px] font-semibold uppercase text-[#A1A1AA]">
                       <tr>
                         <th className="px-4 py-3">Produit</th>
                         <th className="px-4 py-3 text-right">Quantité Vendue</th>
                         <th className="px-4 py-3 text-right">CA Réalisé</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-[#27272A]">
                       {topProducts.items.map((prod) => (
-                        <tr key={prod.productId} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3 font-medium text-slate-900">
+                        <tr key={prod.productId} className="hover:bg-[#202024]/60 transition-colors">
+                          <td className="px-4 py-3 font-medium text-[#FAFAFA]">
                             {prod.productName}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-800">
+                          <td className="px-4 py-3 text-right font-mono font-semibold text-[#FAFAFA]">
                             {prod.quantitySold}
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                          <td className="px-4 py-3 text-right font-semibold text-[#FACC15]">
                             {formatCurrency(prod.revenue)}
                           </td>
                         </tr>
@@ -466,11 +507,13 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* Low Stock Alerts */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="bg-[#18181B] rounded-2xl border border-[#27272A] shadow-xs overflow-hidden">
+              <div className="p-4 sm:p-5 border-b border-[#27272A] flex items-center justify-between bg-[#202024]/30">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
-                  <h3 className="text-sm font-bold text-slate-900">
+                  <div className="p-1.5 rounded-lg bg-[#EF4444]/15 text-[#EF4444]">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-[#FAFAFA]">
                     Alertes Inventaire (Stock Faible & Rupture)
                   </h3>
                 </div>
@@ -480,14 +523,14 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               {!lowStock || lowStock.items.length === 0 ? (
-                <div className="p-8 text-center text-xs text-emerald-600 flex items-center justify-center gap-2">
+                <div className="p-8 text-center text-xs text-emerald-400 flex items-center justify-center gap-2">
                   <CheckCircle className="w-4 h-4" />
                   <span>Tous les stocks sont au-dessus du seuil d'alerte critique.</span>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-600 divide-y divide-slate-100">
-                    <thead className="bg-slate-50/70 text-[11px] font-semibold uppercase text-slate-500">
+                  <table className="w-full text-left text-xs text-[#A1A1AA] divide-y divide-[#27272A]">
+                    <thead className="bg-[#131316] text-[11px] font-semibold uppercase text-[#A1A1AA]">
                       <tr>
                         <th className="px-4 py-3">Produit</th>
                         <th className="px-4 py-3">Statut</th>
@@ -495,11 +538,11 @@ export const DashboardPage: React.FC = () => {
                         <th className="px-4 py-3 text-right">Prix Unitaire</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-[#27272A]">
                       {lowStock.items.map((item) => (
-                        <tr key={item.productId} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3 font-medium text-slate-900">
-                            <Link to="/products" className="hover:underline text-slate-900">
+                        <tr key={item.productId} className="hover:bg-[#202024]/60 transition-colors">
+                          <td className="px-4 py-3 font-medium text-[#FAFAFA]">
+                            <Link to="/products" className="hover:underline text-[#FAFAFA]">
                               {item.name}
                             </Link>
                           </td>
@@ -511,10 +554,10 @@ export const DashboardPage: React.FC = () => {
                               {item.stockStatus === 'OUT_OF_STOCK' ? 'Rupture' : 'Stock faible'}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                          <td className="px-4 py-3 text-right font-mono font-bold text-[#FAFAFA]">
                             {item.stockQuantity}
                           </td>
-                          <td className="px-4 py-3 text-right text-slate-600">
+                          <td className="px-4 py-3 text-right text-[#A1A1AA]">
                             {formatCurrency(item.price)}
                           </td>
                         </tr>
@@ -527,15 +570,17 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           {/* Recent Orders Section */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-[#18181B] rounded-2xl border border-[#27272A] shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-[#27272A] flex items-center justify-between bg-[#202024]/30">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-sm font-bold text-slate-900">Dernières Commandes Passées</h3>
+                <div className="p-1.5 rounded-lg bg-[#FACC15]/15 text-[#FACC15]">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-bold text-[#FAFAFA]">Dernières Commandes Passées</h3>
               </div>
               <Link
                 to="/sales"
-                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                className="text-xs font-semibold text-[#FACC15] hover:text-[#EAB308] flex items-center gap-1 transition-colors"
               >
                 <span>Voir l'historique complet des ventes</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -547,13 +592,13 @@ export const DashboardPage: React.FC = () => {
                 <LoadingSpinner label="Chargement des commandes récentes..." />
               </div>
             ) : recentSalesList.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
+              <div className="p-8 text-center text-xs text-[#71717A]">
                 Aucune vente enregistrée pour le moment.
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600 divide-y divide-slate-100">
-                  <thead className="bg-slate-50/70 text-[11px] font-semibold uppercase text-slate-500">
+                <table className="w-full text-left text-xs text-[#A1A1AA] divide-y divide-[#27272A]">
+                  <thead className="bg-[#131316] text-[11px] font-semibold uppercase text-[#A1A1AA]">
                     <tr>
                       <th className="px-4 py-3">Réf. Vente</th>
                       <th className="px-4 py-3">Statut</th>
@@ -562,13 +607,13 @@ export const DashboardPage: React.FC = () => {
                       <th className="px-4 py-3">Date</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-[#27272A]">
                     {recentSalesList.map((sale) => {
                       const statusBadge = getSaleStatusBadge(sale.status);
                       return (
-                        <tr key={sale.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3 font-mono font-semibold text-slate-900">
-                            <Link to={`/sales/${sale.id}`} className="hover:underline text-emerald-700">
+                        <tr key={sale.id} className="hover:bg-[#202024]/60 transition-colors">
+                          <td className="px-4 py-3 font-mono font-semibold text-[#FAFAFA]">
+                            <Link to={`/sales/${sale.id}`} className="hover:underline text-[#FACC15]">
                               {sale.reference}
                             </Link>
                           </td>
@@ -577,13 +622,13 @@ export const DashboardPage: React.FC = () => {
                               {statusBadge.label}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 font-semibold text-slate-900">
+                          <td className="px-4 py-3 font-semibold text-[#FAFAFA]">
                             {formatCurrency(sale.totalAmount)}
                           </td>
-                          <td className="px-4 py-3 text-slate-500">
+                          <td className="px-4 py-3 text-[#A1A1AA]">
                             {sale.items?.length || 0} référence(s)
                           </td>
-                          <td className="px-4 py-3 text-slate-400">
+                          <td className="px-4 py-3 text-[#71717A]">
                             {formatDate(sale.createdAt)}
                           </td>
                         </tr>

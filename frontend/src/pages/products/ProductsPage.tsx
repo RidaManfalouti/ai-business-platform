@@ -135,12 +135,12 @@ export const ProductsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-[#27272A]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#FAFAFA] tracking-tight">
             Catalogue de Produits
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-[#A1A1AA] mt-1">
             Gestion des articles, stocks disponibles et inventaire (microservice <code>product-service</code>)
           </p>
         </div>
@@ -172,7 +172,7 @@ export const ProductsPage: React.FC = () => {
       )}
 
       {/* Filter / Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#18181B] p-3.5 rounded-2xl border border-[#27272A] shadow-xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Rechercher par nom de produit..."
@@ -182,10 +182,10 @@ export const ProductsPage: React.FC = () => {
           />
         </div>
 
-        <div className="text-xs text-slate-500 flex items-center gap-2">
-          {isFetching && <span className="text-emerald-600 font-medium">Actualisation...</span>}
+        <div className="text-xs text-[#A1A1AA] flex items-center gap-2">
+          {isFetching && <span className="text-[#FACC15] font-medium">Actualisation...</span>}
           <span>
-            Total : <strong className="text-slate-800">{totalElements}</strong> produit(s)
+            Total : <strong className="text-[#FAFAFA]">{totalElements}</strong> produit(s)
           </span>
         </div>
       </div>
@@ -201,7 +201,7 @@ export const ProductsPage: React.FC = () => {
               ? `Aucun produit ne correspond au terme "${debouncedSearch}".`
               : 'Le catalogue est actuellement vide.'
           }
-          icon={<Package className="w-8 h-8 text-slate-400" />}
+          icon={<Package className="w-8 h-8 text-[#71717A]" />}
           actionLabel={isAdmin ? 'Créer un premier produit' : undefined}
           onAction={isAdmin ? handleOpenCreate : undefined}
         />
@@ -225,21 +225,21 @@ export const ProductsPage: React.FC = () => {
 
                 return (
                   <TableRow key={p.id}>
-                    <TableCell className="font-mono text-xs text-slate-400">#{p.id}</TableCell>
+                    <TableCell className="font-mono text-xs text-[#71717A]">#{p.id}</TableCell>
                     <TableCell>
-                      <div className="font-semibold text-slate-900">{p.name}</div>
-                      <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium">
+                      <div className="font-semibold text-[#FAFAFA]">{p.name}</div>
+                      <div className="text-xs text-[#A1A1AA] flex items-center gap-2 mt-0.5">
+                        <span className="inline-block px-2 py-0.5 rounded-lg bg-[#202024] text-[#A1A1AA] border border-[#27272A] text-[10px] font-medium">
                           {p.category}
                         </span>
                         {p.description && (
-                          <span className="text-[11px] text-slate-400 truncate max-w-xs">
+                          <span className="text-[11px] text-[#71717A] truncate max-w-xs">
                             {p.description}
                           </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-bold text-slate-900">
+                    <TableCell className="font-bold text-[#FACC15]">
                       {formatCurrency(p.price)}
                     </TableCell>
                     <TableCell>
@@ -258,7 +258,7 @@ export const ProductsPage: React.FC = () => {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-slate-400">
+                    <TableCell className="text-xs text-[#71717A]">
                       {formatDate(p.createdAt)}
                     </TableCell>
                     {isAdmin && (
@@ -271,7 +271,7 @@ export const ProductsPage: React.FC = () => {
                             title="Modifier ce produit"
                             aria-label={`Modifier ${p.name}`}
                           >
-                            <Edit2 className="w-3.5 h-3.5 text-slate-600" />
+                            <Edit2 className="w-3.5 h-3.5 text-[#A1A1AA] hover:text-[#FAFAFA]" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -279,9 +279,9 @@ export const ProductsPage: React.FC = () => {
                             onClick={() => setProductToDelete(p)}
                             title="Supprimer définitivement"
                             aria-label={`Supprimer ${p.name}`}
-                            className="hover:text-rose-600"
+                            className="hover:text-[#EF4444]"
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                            <Trash2 className="w-3.5 h-3.5 text-[#EF4444]" />
                           </Button>
                         </div>
                       </TableCell>

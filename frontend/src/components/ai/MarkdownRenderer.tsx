@@ -28,7 +28,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
       blocks.push(
         <pre
           key={`code-${blockIndex++}`}
-          className="my-3 overflow-x-auto rounded-lg bg-slate-900 p-3.5 text-xs text-slate-100 font-mono border border-slate-700/60"
+          className="my-3 overflow-x-auto rounded-xl bg-[#09090B] p-3.5 text-xs text-[#FAFAFA] font-mono border border-[#27272A] shadow-inner"
         >
           <code>{codeLines.join('\n')}</code>
         </pre>
@@ -54,27 +54,27 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
         const bodyLines = tableLines.slice(2); // Skip separator row
 
         blocks.push(
-          <div key={`table-${blockIndex++}`} className="my-3 overflow-x-auto rounded-lg border border-slate-700">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-800 text-slate-200">
+          <div key={`table-${blockIndex++}`} className="my-3 overflow-x-auto rounded-xl border border-[#27272A] shadow-xs">
+            <table className="w-full text-left text-xs bg-[#18181B]">
+              <thead className="bg-[#202024] text-[#A1A1AA] border-b border-[#27272A]">
                 <tr>
                   {headerCells.map((th, thIdx) => (
-                    <th key={thIdx} className="px-3 py-2 font-semibold border-b border-slate-700">
+                    <th key={thIdx} className="px-3.5 py-2.5 font-semibold">
                       {renderInline(th)}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/60 text-slate-300">
+              <tbody className="divide-y divide-[#27272A] text-[#FAFAFA]">
                 {bodyLines.map((row, rIdx) => {
                   const cells = row
                     .split('|')
                     .slice(1, -1)
                     .map((c) => c.trim());
                   return (
-                    <tr key={rIdx} className="hover:bg-slate-800/40">
+                    <tr key={rIdx} className="hover:bg-[#202024]/60 transition-colors">
                       {cells.map((cell, cIdx) => (
-                        <td key={cIdx} className="px-3 py-2">
+                        <td key={cIdx} className="px-3.5 py-2.5">
                           {renderInline(cell)}
                         </td>
                       ))}
@@ -92,7 +92,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
     // Headers
     if (line.startsWith('### ')) {
       blocks.push(
-        <h4 key={`h3-${blockIndex++}`} className="mt-4 mb-1.5 text-sm font-bold text-slate-100">
+        <h4 key={`h3-${blockIndex++}`} className="mt-4 mb-1.5 text-sm font-bold text-[#FACC15]">
           {renderInline(line.substring(4))}
         </h4>
       );
@@ -101,7 +101,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
     }
     if (line.startsWith('## ')) {
       blocks.push(
-        <h3 key={`h2-${blockIndex++}`} className="mt-4 mb-2 text-base font-bold text-emerald-400">
+        <h3 key={`h2-${blockIndex++}`} className="mt-4 mb-2 text-base font-bold text-[#A855F7]">
           {renderInline(line.substring(3))}
         </h3>
       );
@@ -110,7 +110,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
     }
     if (line.startsWith('# ')) {
       blocks.push(
-        <h2 key={`h1-${blockIndex++}`} className="mt-4 mb-2 text-lg font-extrabold text-white">
+        <h2 key={`h1-${blockIndex++}`} className="mt-4 mb-2 text-lg font-extrabold text-[#FAFAFA]">
           {renderInline(line.substring(2))}
         </h2>
       );
@@ -123,7 +123,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
       blocks.push(
         <blockquote
           key={`quote-${blockIndex++}`}
-          className="my-2 border-l-4 border-emerald-500 pl-3 italic text-slate-300 text-xs"
+          className="my-2 border-l-4 border-[#A855F7] bg-[#A855F7]/10 pl-3 py-1.5 rounded-r-lg italic text-[#A1A1AA] text-xs"
         >
           {renderInline(line.substring(2))}
         </blockquote>
@@ -140,7 +140,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
         i++;
       }
       blocks.push(
-        <ul key={`ul-${blockIndex++}`} className="my-2 list-disc list-inside space-y-1 text-xs text-slate-200">
+        <ul key={`ul-${blockIndex++}`} className="my-2 list-disc list-inside space-y-1 text-xs text-[#FAFAFA]">
           {listItems.map((item, idx) => (
             <li key={idx}>{renderInline(item)}</li>
           ))}
@@ -157,7 +157,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
         i++;
       }
       blocks.push(
-        <ol key={`ol-${blockIndex++}`} className="my-2 list-decimal list-inside space-y-1 text-xs text-slate-200">
+        <ol key={`ol-${blockIndex++}`} className="my-2 list-decimal list-inside space-y-1 text-xs text-[#FAFAFA]">
           {listItems.map((item, idx) => (
             <li key={idx}>{renderInline(item)}</li>
           ))}
@@ -174,7 +174,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
 
     // Paragraph
     blocks.push(
-      <p key={`p-${blockIndex++}`} className="my-1.5 text-xs text-slate-200 leading-relaxed">
+      <p key={`p-${blockIndex++}`} className="my-1.5 text-xs text-[#FAFAFA] leading-relaxed">
         {renderInline(line)}
       </p>
     );
@@ -199,13 +199,13 @@ function renderInline(text: string): React.ReactNode {
     const token = match[0];
     if (token.startsWith('**') && token.endsWith('**')) {
       parts.push(
-        <strong key={match.index} className="font-bold text-white">
+        <strong key={match.index} className="font-bold text-[#FACC15]">
           {token.substring(2, token.length - 2)}
         </strong>
       );
     } else if (token.startsWith('*') && token.endsWith('*')) {
       parts.push(
-        <em key={match.index} className="italic text-slate-300">
+        <em key={match.index} className="italic text-[#A1A1AA]">
           {token.substring(1, token.length - 1)}
         </em>
       );
@@ -213,7 +213,7 @@ function renderInline(text: string): React.ReactNode {
       parts.push(
         <code
           key={match.index}
-          className="rounded bg-slate-800 px-1 py-0.5 text-[11px] font-mono text-emerald-300 border border-slate-700"
+          className="rounded bg-[#202024] px-1.5 py-0.5 text-[11px] font-mono text-[#D8B4FE] border border-[#27272A]"
         >
           {token.substring(1, token.length - 1)}
         </code>

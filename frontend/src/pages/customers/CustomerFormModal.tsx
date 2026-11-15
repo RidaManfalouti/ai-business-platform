@@ -145,7 +145,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
           />
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#27272A]">
           <Button variant="outline" type="button" onClick={onClose} disabled={isLoading}>
             Annuler
           </Button>

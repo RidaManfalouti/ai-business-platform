@@ -120,15 +120,15 @@ export const AdminSagasPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[#27272A]">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#FAFAFA] tracking-tight">
               Sagas & Réconciliation de Stock
             </h1>
             <Badge variant="purple">ROLE_ADMIN</Badge>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-[#A1A1AA] mt-1">
             Supervision de la cohérence distribuée, reprise automatique et audits d'intégrité de stock
           </p>
         </div>
@@ -138,7 +138,7 @@ export const AdminSagasPage: React.FC = () => {
           size="sm"
           isLoading={reconciliationMutation.isPending}
           onClick={() => reconciliationMutation.mutate(15)}
-          icon={<Play className="w-3.5 h-3.5 text-emerald-600" />}
+          icon={<Play className="w-3.5 h-3.5 text-[#FACC15]" />}
         >
           Lancer l'audit de réconciliation
         </Button>
@@ -164,31 +164,31 @@ export const AdminSagasPage: React.FC = () => {
       )}
 
       {/* Latest Reconciliation Audit Overview Banner */}
-      <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="p-4 rounded-xl bg-[#18181B] border border-[#27272A] shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-            <FileSearch className="w-4 h-4 text-emerald-600" />
+          <div className="flex items-center gap-2 text-xs font-bold text-[#FAFAFA]">
+            <FileSearch className="w-4 h-4 text-[#FACC15]" />
             <span>Dernier rapport d'audit de réconciliation (read-only)</span>
           </div>
           {loadingReconciliation ? (
-            <p className="text-xs text-slate-400 mt-1">Chargement du rapport...</p>
+            <p className="text-xs text-[#71717A] mt-1">Chargement du rapport...</p>
           ) : reconciliationReport ? (
-            <p className="text-xs text-slate-500 mt-1">
-              Exécuté le <strong>{formatDate(reconciliationReport.executedAt)}</strong> • Sagas
-              vérifiées : <strong>{reconciliationReport.sagasChecked}</strong> • Ventes auditées :{' '}
-              <strong>{reconciliationReport.salesChecked}</strong> • Anomalies constatées :{' '}
+            <p className="text-xs text-[#A1A1AA] mt-1">
+              Exécuté le <strong className="text-[#FAFAFA]">{formatDate(reconciliationReport.executedAt)}</strong> • Sagas
+              vérifiées : <strong className="text-[#FAFAFA]">{reconciliationReport.sagasChecked}</strong> • Ventes auditées :{' '}
+              <strong className="text-[#FAFAFA]">{reconciliationReport.salesChecked}</strong> • Anomalies constatées :{' '}
               <strong
                 className={
                   reconciliationReport.discrepanciesCount > 0
-                    ? 'text-rose-600'
-                    : 'text-emerald-600'
+                    ? 'text-red-400'
+                    : 'text-emerald-400'
                 }
               >
                 {reconciliationReport.discrepanciesCount}
               </strong>
             </p>
           ) : (
-            <p className="text-xs text-slate-400 mt-1">Aucun rapport d'audit récent disponible.</p>
+            <p className="text-xs text-[#71717A] mt-1">Aucun rapport d'audit récent disponible.</p>
           )}
         </div>
 
@@ -200,7 +200,7 @@ export const AdminSagasPage: React.FC = () => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#18181B] p-3 rounded-xl border border-[#27272A] shadow-lg">
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
           {[
             'ALL',
@@ -213,10 +213,10 @@ export const AdminSagasPage: React.FC = () => {
               key={st}
               type="button"
               onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 statusFilter === st
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-[#FACC15] text-[#09090B] font-bold shadow-md shadow-yellow-500/10'
+                  : 'bg-[#202024] text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#27272A]'
               }`}
             >
               {st === 'ALL' ? 'Toutes les Sagas' : st}
@@ -224,8 +224,8 @@ export const AdminSagasPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="text-xs text-slate-500">
-          {isFetching && <span className="text-emerald-600 font-medium mr-2">Actualisation...</span>}
+        <div className="text-xs text-[#A1A1AA]">
+          {isFetching && <span className="text-[#FACC15] font-medium mr-2">Actualisation...</span>}
           <span>{sagas.length} Saga(s) affichée(s)</span>
         </div>
       </div>
@@ -234,10 +234,10 @@ export const AdminSagasPage: React.FC = () => {
       {isLoading ? (
         <LoadingSpinner label="Chargement des Sagas distribuées..." />
       ) : sagas.length === 0 ? (
-        <div className="bg-white p-10 text-center rounded-xl border border-dashed border-slate-300 text-slate-500">
-          <GitBranch className="w-8 h-8 mx-auto text-slate-400 mb-2" />
-          <p className="text-sm font-semibold text-slate-700">Aucune Saga trouvée</p>
-          <p className="text-xs text-slate-400 mt-1">
+        <div className="bg-[#18181B] p-10 text-center rounded-xl border border-dashed border-[#27272A] text-[#A1A1AA]">
+          <GitBranch className="w-8 h-8 mx-auto text-[#71717A] mb-2" />
+          <p className="text-sm font-semibold text-[#FAFAFA]">Aucune Saga trouvée</p>
+          <p className="text-xs text-[#71717A] mt-1">
             Aucune orchestration ne correspond au filtre actuel.
           </p>
         </div>
@@ -264,19 +264,19 @@ export const AdminSagasPage: React.FC = () => {
 
               return (
                 <TableRow key={s.id}>
-                  <TableCell className="font-mono text-xs font-bold text-slate-900">
+                  <TableCell className="font-mono text-xs font-bold text-[#FAFAFA]">
                     <button
                       type="button"
                       onClick={() => setSelectedSagaId(s.sagaId)}
-                      className="text-emerald-600 hover:underline flex items-center gap-1 text-left"
+                      className="text-[#FACC15] hover:underline flex items-center gap-1 text-left"
                     >
                       <Eye className="w-3 h-3 shrink-0" />
                       <span>{s.sagaId}</span>
                     </button>
                   </TableCell>
                   <TableCell>
-                    <div className="font-semibold text-xs text-slate-800">{s.sagaType}</div>
-                    <div className="font-mono text-[11px] text-slate-400 mt-0.5">
+                    <div className="font-semibold text-xs text-[#FAFAFA]">{s.sagaType}</div>
+                    <div className="font-mono text-[11px] text-[#A1A1AA] mt-0.5">
                       Réf: {s.saleReference}
                     </div>
                   </TableCell>
@@ -285,13 +285,13 @@ export const AdminSagasPage: React.FC = () => {
                       {badge.label}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs font-semibold text-slate-700">
+                  <TableCell className="text-xs font-semibold text-[#FAFAFA]">
                     {s.attemptCount} / {s.maxAttempts}
                   </TableCell>
-                  <TableCell className="text-xs text-rose-600 max-w-xs truncate" title={s.lastError || ''}>
-                    {s.lastError || <span className="text-slate-400 italic">Aucune</span>}
+                  <TableCell className="text-xs text-red-400 max-w-xs truncate" title={s.lastError || ''}>
+                    {s.lastError || <span className="text-[#71717A] italic">Aucune</span>}
                   </TableCell>
-                  <TableCell className="text-xs text-slate-400">
+                  <TableCell className="text-xs text-[#71717A]">
                     {formatDate(s.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
@@ -304,7 +304,7 @@ export const AdminSagasPage: React.FC = () => {
                           title="Déclencher un réessai de compensation"
                           aria-label={`Réessayer ${s.sagaId}`}
                         >
-                          <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                          <RotateCcw className="w-3.5 h-3.5 text-[#FACC15]" />
                         </Button>
                       )}
                       {canResolve && (
@@ -318,7 +318,7 @@ export const AdminSagasPage: React.FC = () => {
                           title="Résoudre manuellement cette saga"
                           aria-label={`Résoudre ${s.sagaId}`}
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                         </Button>
                       )}
                     </div>
@@ -345,46 +345,46 @@ export const AdminSagasPage: React.FC = () => {
             <Alert variant="error">Impossible de récupérer les détails de la Saga.</Alert>
           ) : (
             <div className="space-y-4">
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs grid grid-cols-2 gap-2">
+              <div className="p-3.5 bg-[#202024] rounded-xl border border-[#27272A] text-xs grid grid-cols-2 gap-2 text-[#A1A1AA]">
                 <div>
-                  Statut : <strong>{sagaDetails.saga.status}</strong>
+                  Statut : <strong className="text-[#FAFAFA]">{sagaDetails.saga.status}</strong>
                 </div>
                 <div>
                   Tentatives :{' '}
-                  <strong>
+                  <strong className="text-[#FAFAFA]">
                     {sagaDetails.saga.attemptCount} / {sagaDetails.saga.maxAttempts}
                   </strong>
                 </div>
                 <div>
-                  Réservation : <code>{sagaDetails.saga.reservationId}</code>
+                  Réservation : <code className="text-[#FACC15] font-mono">{sagaDetails.saga.reservationId}</code>
                 </div>
                 <div>
-                  Créée : {formatDate(sagaDetails.saga.createdAt)}
+                  Créée : <span className="text-[#FAFAFA]">{formatDate(sagaDetails.saga.createdAt)}</span>
                 </div>
                 {sagaDetails.saga.lastError && (
-                  <div className="col-span-2 text-rose-600">
+                  <div className="col-span-2 text-red-400">
                     Erreur : {sagaDetails.saga.lastError}
                   </div>
                 )}
               </div>
 
               <div>
-                <h4 className="text-xs font-bold uppercase text-slate-600 mb-2">
+                <h4 className="text-xs font-bold uppercase text-[#A1A1AA] mb-2">
                   Événements enregistrés ({sagaDetails.events?.length || 0})
                 </h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {sagaDetails.events?.map((ev) => (
                     <div
                       key={ev.id}
-                      className="p-2.5 rounded-lg border border-slate-200 bg-white text-xs hover:bg-slate-50"
+                      className="p-3 rounded-xl border border-[#27272A] bg-[#202024] text-xs hover:border-[#3F3F46] transition-colors"
                     >
-                      <div className="flex items-center justify-between font-semibold text-slate-800">
+                      <div className="flex items-center justify-between font-semibold text-[#FAFAFA]">
                         <span>{ev.eventType}</span>
-                        <span className="text-[11px] text-slate-400 font-normal">
+                        <span className="text-[11px] text-[#71717A] font-normal">
                           {formatDate(ev.createdAt)}
                         </span>
                       </div>
-                      <div className="text-slate-600 mt-1">{ev.message}</div>
+                      <div className="text-[#A1A1AA] mt-1">{ev.message}</div>
                     </div>
                   ))}
                 </div>
@@ -418,8 +418,8 @@ export const AdminSagasPage: React.FC = () => {
           maxWidth="md"
         >
           <div className="space-y-4">
-            <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 p-3 rounded-lg border border-amber-200">
-              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 text-xs text-amber-300 bg-amber-950/40 p-3 rounded-xl border border-amber-800/60">
+              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <span>
                 À n'utiliser qu'après avoir vérifié que le stock a été régularisé manuellement dans le
                 service catalogue.
@@ -433,7 +433,7 @@ export const AdminSagasPage: React.FC = () => {
               placeholder="ex: Stock ajusté manuellement en base"
             />
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#27272A]">
               <Button variant="outline" onClick={() => setSagaToResolve(null)}>
                 Annuler
               </Button>

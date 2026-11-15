@@ -74,34 +74,34 @@ export const TenantSwitcher: React.FC = () => {
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-xs"
+          className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-[#27272A] bg-[#18181B] hover:bg-[#202024] transition-all text-left focus:outline-none focus:ring-2 focus:ring-[#FACC15]/20 shadow-xs"
         >
-          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-50 text-indigo-600">
+          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#FACC15]/15 text-[#FACC15]">
             <Building2 className="w-4 h-4" />
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-semibold text-slate-800 truncate max-w-[140px] sm:max-w-[180px]">
+            <span className="text-xs font-semibold text-[#FAFAFA] truncate max-w-[140px] sm:max-w-[180px]">
               {displayName}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium">
+            <span className="text-[10px] text-[#A1A1AA] font-medium">
               {activeTenantRole ? `Rôle : ${activeTenantRole}` : 'Locataire'}
             </span>
           </div>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+          <ChevronDown className="w-3.5 h-3.5 text-[#71717A] ml-1" />
         </button>
 
         {isOpen && (
-          <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 rounded-xl bg-white shadow-xl border border-slate-100 py-2 z-50">
-            <div className="px-3 py-1.5 border-b border-slate-100 mb-1 flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 rounded-2xl bg-[#18181B] shadow-2xl border border-[#27272A] py-2 z-50 shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+            <div className="px-3.5 py-2 border-b border-[#27272A] mb-1 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-[#71717A] uppercase tracking-wider">
                 Mes Entreprises
               </span>
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             </div>
 
             <div className="max-h-60 overflow-y-auto py-1">
               {availableTenants.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-slate-500 text-center">
+                <div className="px-3 py-2 text-xs text-[#71717A] text-center">
                   Aucune entreprise disponible
                 </div>
               ) : (
@@ -112,30 +112,30 @@ export const TenantSwitcher: React.FC = () => {
                       key={tenant.tenantId}
                       type="button"
                       onClick={() => handleSelectTenant(tenant.tenantId)}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-50 transition ${
-                        isCurrent ? 'bg-indigo-50/50' : ''
+                      className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-[#202024] transition-colors ${
+                        isCurrent ? 'bg-[#FACC15]/10 border-l-2 border-l-[#FACC15]' : ''
                       }`}
                     >
                       <div className="flex items-center gap-2.5 truncate mr-2">
                         <Building2
                           className={`w-4 h-4 shrink-0 ${
-                            isCurrent ? 'text-indigo-600' : 'text-slate-400'
+                            isCurrent ? 'text-[#FACC15]' : 'text-[#71717A]'
                           }`}
                         />
                         <div className="truncate">
-                          <div className="text-xs font-medium text-slate-800 truncate">
+                          <div className={`text-xs font-medium truncate ${isCurrent ? 'text-[#FACC15] font-semibold' : 'text-[#FAFAFA]'}`}>
                             {tenant.tenantName}
                           </div>
-                          <div className="text-[10px] text-slate-400 truncate">
+                          <div className="text-[10px] text-[#71717A] truncate">
                             {tenant.tenantSlug}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <Badge variant="default" size="sm" className="text-[10px] py-0 px-1.5">
+                        <Badge variant={isCurrent ? 'yellow' : 'default'} size="sm" className="text-[10px] py-0 px-1.5">
                           {tenant.role}
                         </Badge>
-                        {isCurrent && <Check className="w-4 h-4 text-indigo-600" />}
+                        {isCurrent && <Check className="w-4 h-4 text-[#FACC15]" />}
                       </div>
                     </button>
                   );
@@ -143,14 +143,14 @@ export const TenantSwitcher: React.FC = () => {
               )}
             </div>
 
-            <div className="border-t border-slate-100 mt-1 pt-1 px-1">
+            <div className="border-t border-[#27272A] mt-1 pt-1.5 px-2">
               <button
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
                   setIsModalOpen(true);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#FACC15] hover:bg-[#FACC15]/10 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>Créer une nouvelle entreprise</span>
@@ -168,13 +168,13 @@ export const TenantSwitcher: React.FC = () => {
       >
         <form onSubmit={handleCreateTenant} className="space-y-4">
           {error && (
-            <div className="p-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
+            <div className="p-3 text-xs text-[#EF4444] bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1.5">
               Nom de l'entreprise *
             </label>
             <Input
@@ -187,7 +187,7 @@ export const TenantSwitcher: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider mb-1.5">
               Identifiant / Slug (optionnel)
             </label>
             <Input
@@ -196,7 +196,7 @@ export const TenantSwitcher: React.FC = () => {
               value={newTenantSlug}
               onChange={(e) => setNewTenantSlug(e.target.value)}
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-[#71717A] mt-1">
               S'il est omis, un slug unique sera généré automatiquement.
             </p>
           </div>

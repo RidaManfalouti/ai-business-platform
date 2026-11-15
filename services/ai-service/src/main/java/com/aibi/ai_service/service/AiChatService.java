@@ -13,6 +13,7 @@ import com.aibi.ai_service.repository.AiConversationRepository;
 import com.aibi.ai_service.repository.AiMessageRepository;
 import com.aibi.ai_service.security.SecurityUtils;
 import com.aibi.ai_service.security.TenantContext;
+import com.aibi.ai_service.tools.BusinessToolAuthorizationService;
 import com.aibi.ai_service.tools.BusinessToolExecutor;
 import com.aibi.ai_service.tools.BusinessToolRegistry;
 import org.slf4j.Logger;
@@ -49,6 +50,7 @@ public class AiChatService {
     private final LlmProviderFactory providerFactory;
     private final BusinessToolRegistry toolRegistry;
     private final BusinessToolExecutor toolExecutor;
+    private final BusinessToolAuthorizationService toolAuthorizationService;
     private final RateLimiterService rateLimiterService;
 
     public AiChatService(
@@ -58,6 +60,7 @@ public class AiChatService {
             LlmProviderFactory providerFactory,
             BusinessToolRegistry toolRegistry,
             BusinessToolExecutor toolExecutor,
+            BusinessToolAuthorizationService toolAuthorizationService,
             RateLimiterService rateLimiterService) {
         this.conversationService = conversationService;
         this.conversationRepository = conversationRepository;
@@ -65,6 +68,7 @@ public class AiChatService {
         this.providerFactory = providerFactory;
         this.toolRegistry = toolRegistry;
         this.toolExecutor = toolExecutor;
+        this.toolAuthorizationService = toolAuthorizationService;
         this.rateLimiterService = rateLimiterService;
     }
 
@@ -106,9 +110,13 @@ public class AiChatService {
             llmMessages.add(new LlmMessage(roleStr, msg.getContent()));
         }
 
-        // 6. Execute Conversation with Tools Loop
+        // 6. Execute Conversation with Tools Loop (Filtered by caller tenant role)
         LlmProvider provider = providerFactory.getProvider();
-        List<LlmToolDefinition> tools = toolRegistry.getAvailableTools();
+        String tenantRole = SecurityUtils.getCurrentTenantRole().orElse(null);
+        List<LlmToolDefinition> tools = toolAuthorizationService.filterAuthorizedTools(
+                toolRegistry.getAvailableTools(),
+                tenantRole
+        );
 
         String finalResponseText = executeWithTools(provider, llmMessages, tools);
 
@@ -170,8 +178,8 @@ public class AiChatService {
                     toolResult = "{\"error\":\"TOOL_EXECUTION_ERROR\",\"message\":\"" + ex.getMessage() + "\"}";
                 }
 
-                // Add tool result to context
-                currentContext.add(LlmMessage.tool(toolCall.id(), toolResult));
+                // Add tool result to context (keyed by tool function name for provider matching)
+                currentContext.add(LlmMessage.tool(toolCall.name(), toolResult));
             }
         }
 

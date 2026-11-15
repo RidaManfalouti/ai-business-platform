@@ -42,4 +42,45 @@ public final class SecurityUtils {
     public static Optional<String> getCurrentUserEmail() {
         return getCurrentJwt().map(Jwt::getSubject);
     }
+
+    public static Optional<String> getCurrentTenantRole() {
+        return getCurrentJwt().map(jwt -> {
+            Object claim = jwt.getClaim("tenant_role");
+            if (claim != null) {
+                String role = claim.toString().trim();
+                if (!role.isEmpty()) {
+                    return role;
+                }
+            }
+            // Fallback de compatibilité vers la liste des rôles si tenant_role n'est pas séparé
+            Object rolesClaim = jwt.getClaim("roles");
+            if (rolesClaim == null) {
+                rolesClaim = jwt.getClaim("authorities");
+            }
+            if (rolesClaim instanceof java.util.Collection<?> col) {
+                for (Object item : col) {
+                    if (item != null) {
+                        String r = item.toString().trim();
+                        if (r.startsWith("ROLE_")) {
+                            r = r.substring(5);
+                        }
+                        if (java.util.Set.of("OWNER", "ADMIN", "MANAGER", "SELLER", "VIEWER").contains(r.toUpperCase())) {
+                            return r.toUpperCase();
+                        }
+                    }
+                }
+            } else if (rolesClaim instanceof String str) {
+                for (String part : str.split("[,\\s]+")) {
+                    String r = part.trim();
+                    if (r.startsWith("ROLE_")) {
+                        r = r.substring(5);
+                    }
+                    if (java.util.Set.of("OWNER", "ADMIN", "MANAGER", "SELLER", "VIEWER").contains(r.toUpperCase())) {
+                        return r.toUpperCase();
+                    }
+                }
+            }
+            return null;
+        });
+    }
 }

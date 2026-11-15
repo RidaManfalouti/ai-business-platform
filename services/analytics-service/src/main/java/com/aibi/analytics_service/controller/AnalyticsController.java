@@ -66,6 +66,16 @@ public class AnalyticsController {
         return ResponseEntity.ok(analyticsService.getTopProducts(from, to, timezone, limit));
     }
 
+    @GetMapping("/top-customers")
+    @Operation(summary = "Classement des meilleurs clients", description = "Retourne les meilleurs clients par montant dépensé sur les ventes COMPLETED sans PII")
+    public ResponseEntity<TopCustomersResponse> getTopCustomers(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) String timezone,
+            @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(analyticsService.getTopCustomers(from, to, timezone, limit));
+    }
+
     @GetMapping("/status-distribution")
     @Operation(summary = "Répartition par statut de commande", description = "Retourne la distribution des commandes par état (PENDING, CONFIRMED, COMPLETED, CANCELLED)")
     public ResponseEntity<StatusDistributionResponse> getStatusDistribution(

@@ -181,6 +181,41 @@ public class AnalyticsService {
         );
     }
 
+    public TopCustomersResponse getTopCustomers(LocalDate from, LocalDate to, String timezoneParam, int limit) {
+        ResolvedPeriod period = resolveAndValidatePeriod(from, to, timezoneParam);
+        int boundedLimit = Math.max(1, Math.min(limit, 50));
+
+        List<TopCustomerAggregateDto> rawTop = salesServiceClient.getTopCustomers(
+                period.startDateTime(), period.endDateTime(), boundedLimit
+        );
+        List<TopCustomerItem> items = new ArrayList<>();
+
+        if (rawTop != null) {
+            for (TopCustomerAggregateDto item : rawTop) {
+                BigDecimal spent = item.totalSpent() != null ? item.totalSpent() : BigDecimal.ZERO;
+                String customerName = "Client #" + item.customerId();
+                try {
+                    java.util.Optional<CustomerSummaryDto> summary = customerServiceClient.getCustomerSummary(item.customerId());
+                    if (summary.isPresent()) {
+                        customerName = summary.get().displayName();
+                    }
+                } catch (Exception ex) {
+                    log.warn("Impossible d'enrichir le nom du client {}: {}", item.customerId(), ex.getMessage());
+                }
+
+                items.add(new TopCustomerItem(
+                        item.customerId(),
+                        customerName,
+                        item.completedSalesCount(),
+                        spent.setScale(2, RoundingMode.HALF_UP),
+                        currency
+                ));
+            }
+        }
+
+        return new TopCustomersResponse(items, items.size());
+    }
+
     public StatusDistributionResponse getStatusDistribution(LocalDate from, LocalDate to, String timezoneParam) {
         ResolvedPeriod period = resolveAndValidatePeriod(from, to, timezoneParam);
 

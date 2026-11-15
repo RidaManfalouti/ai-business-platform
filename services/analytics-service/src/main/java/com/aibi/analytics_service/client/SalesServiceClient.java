@@ -188,4 +188,43 @@ public class SalesServiceClient {
             );
         }
     }
+
+    public List<com.aibi.analytics_service.client.dto.TopCustomerAggregateDto> getTopCustomers(LocalDateTime startDate, LocalDateTime endDate, int limit) {
+        try {
+            return restClient.get()
+                    .uri(uriBuilder -> {
+                        uriBuilder.path("/api/sales/aggregates/top-customers");
+                        uriBuilder.queryParam("limit", limit);
+                        if (startDate != null) {
+                            uriBuilder.queryParam("startDate", startDate.format(DateTimeFormatter.ISO_DATE_TIME));
+                        }
+                        if (endDate != null) {
+                            uriBuilder.queryParam("endDate", endDate.format(DateTimeFormatter.ISO_DATE_TIME));
+                        }
+                        return uriBuilder.build();
+                    })
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                        throw new DownstreamServiceException(
+                                "Le service des ventes a retourné une erreur lors de l'analyse des meilleurs clients.",
+                                HttpStatus.BAD_GATEWAY
+                        );
+                    })
+                    .body(new ParameterizedTypeReference<List<com.aibi.analytics_service.client.dto.TopCustomerAggregateDto>>() {});
+        } catch (DownstreamServiceException ex) {
+            throw ex;
+        } catch (ResourceAccessException ex) {
+            log.error("Délai d'attente dépassé pour sales-service (top-customers) : {}", ex.getMessage());
+            throw new DownstreamServiceException(
+                    "Impossible de joindre le service des ventes (délai dépassé).",
+                    HttpStatus.SERVICE_UNAVAILABLE
+            );
+        } catch (Exception ex) {
+            log.error("Erreur lors de l'appel au service des ventes (top-customers) : {}", ex.getMessage());
+            throw new DownstreamServiceException(
+                    "Erreur de communication avec le service des ventes pour les meilleurs clients.",
+                    HttpStatus.BAD_GATEWAY
+            );
+        }
+    }
 }

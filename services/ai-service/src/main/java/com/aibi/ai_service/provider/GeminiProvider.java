@@ -23,6 +23,7 @@ public class GeminiProvider implements LlmProvider {
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public GeminiProvider(LlmProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
@@ -34,6 +35,12 @@ public class GeminiProvider implements LlmProvider {
         this.restClient = RestClient.builder()
                 .requestFactory(factory)
                 .build();
+    }
+
+    GeminiProvider(LlmProperties properties, ObjectMapper objectMapper, RestClient restClient) {
+        this.properties = properties;
+        this.objectMapper = objectMapper;
+        this.restClient = restClient;
     }
 
     @Override
@@ -57,7 +64,7 @@ public class GeminiProvider implements LlmProvider {
         String baseUrl = properties.getGemini().getBaseUrl();
         String apiKey = properties.getGemini().getApiKey();
 
-        String url = String.format("%s/v1beta/models/%s:generateContent?key=%s", baseUrl, model, apiKey);
+        String url = String.format("%s/v1beta/models/%s:generateContent", baseUrl, model);
 
         Map<String, Object> payload = buildGeminiPayload(request);
 
@@ -70,6 +77,7 @@ public class GeminiProvider implements LlmProvider {
             try {
                 String responseBody = restClient.post()
                         .uri(url)
+                        .header("x-goog-api-key", apiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(payload)
                         .retrieve()
@@ -127,12 +135,20 @@ public class GeminiProvider implements LlmProvider {
                     for (LlmToolCall call : msg.toolCalls()) {
                         Map<String, Object> funcCall = new HashMap<>();
                         funcCall.put("name", call.name());
+                        if (call.id() != null && !call.id().isBlank()) {
+                            funcCall.put("id", call.id());
+                        }
                         try {
                             funcCall.put("args", objectMapper.readValue(call.argumentsJson(), Map.class));
                         } catch (Exception ignored) {
                             funcCall.put("args", Collections.emptyMap());
                         }
-                        parts.add(Map.of("functionCall", funcCall));
+                        Map<String, Object> partMap = new HashMap<>();
+                        partMap.put("functionCall", funcCall);
+                        if (call.thoughtSignature() != null && !call.thoughtSignature().isBlank()) {
+                            partMap.put("thoughtSignature", call.thoughtSignature());
+                        }
+                        parts.add(partMap);
                     }
                 }
             }
@@ -181,9 +197,13 @@ public class GeminiProvider implements LlmProvider {
                     if (part.has("functionCall")) {
                         JsonNode funcCall = part.get("functionCall");
                         String name = funcCall.path("name").asText();
+                        String callId = funcCall.has("id") && !funcCall.get("id").asText().isBlank()
+                                ? funcCall.get("id").asText()
+                                : "call_" + UUID.randomUUID().toString().substring(0, 8);
                         JsonNode argsNode = funcCall.path("args");
                         String argsJson = argsNode.isMissingNode() ? "{}" : objectMapper.writeValueAsString(argsNode);
-                        toolCalls.add(new LlmToolCall("call_" + UUID.randomUUID().toString().substring(0, 8), name, argsJson));
+                        String thoughtSig = part.has("thoughtSignature") ? part.get("thoughtSignature").asText() : null;
+                        toolCalls.add(new LlmToolCall(callId, name, argsJson, thoughtSig));
                     }
                 }
             }

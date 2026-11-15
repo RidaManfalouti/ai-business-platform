@@ -3,6 +3,7 @@ package com.aibi.sales_service.controller;
 import com.aibi.sales_service.dto.DailyTrendResponse;
 import com.aibi.sales_service.dto.SalesStatusCountResponse;
 import com.aibi.sales_service.dto.SalesSummaryAggregateResponse;
+import com.aibi.sales_service.dto.TopCustomerAggregateResponse;
 import com.aibi.sales_service.dto.TopProductAggregateResponse;
 import com.aibi.sales_service.service.SalesService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -61,5 +62,14 @@ public class SalesAggregationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(defaultValue = "5") int limit) {
         return ResponseEntity.ok(salesService.getTopProducts(startDate, endDate, limit));
+    }
+
+    @GetMapping("/top-customers")
+    @Operation(summary = "Meilleurs clients par dépenses", description = "Retourne le classement des meilleurs clients calculé sur les ventes COMPLETED pour le locataire")
+    public ResponseEntity<List<TopCustomerAggregateResponse>> getTopCustomers(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(salesService.getTopCustomers(startDate, endDate, limit));
     }
 }

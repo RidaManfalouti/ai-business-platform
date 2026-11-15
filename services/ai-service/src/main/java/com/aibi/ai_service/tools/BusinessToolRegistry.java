@@ -81,11 +81,14 @@ public class BusinessToolRegistry {
         // 5. getTopCustomers
         tools.add(new LlmToolDefinition(
                 "getTopCustomers",
-                "Retourne la liste des clients de l'entreprise avec leurs coordonnées.",
+                "Retourne le classement des meilleurs clients de l'entreprise par chiffre d'affaires et volume de commandes terminées, sans données personnelles sensibles (PII).",
                 Map.of(
                         "type", "object",
                         "properties", Map.of(
-                                "limit", Map.of("type", "integer", "description", "Nombre maximum de clients (défaut 10, max 25)")
+                                "from", Map.of("type", "string", "description", "Date de début optionnelle YYYY-MM-DD"),
+                                "to", Map.of("type", "string", "description", "Date de fin optionnelle YYYY-MM-DD"),
+                                "timezone", Map.of("type", "string", "description", "Fuseau horaire optionnel (ex: UTC, Europe/Paris)"),
+                                "limit", Map.of("type", "integer", "description", "Nombre maximum de clients retournés (défaut 10, max 25)")
                         )
                 )
         ));

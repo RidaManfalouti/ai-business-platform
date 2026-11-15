@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -250,5 +251,41 @@ class AnalyticsServiceTest {
         assertThatThrownBy(() -> analyticsService.getKpiSummary(from, to, "UTC"))
                 .isInstanceOf(DownstreamServiceException.class)
                 .hasMessageContaining("Sales service unavailable");
+    }
+
+    @Test
+    @DisplayName("Classement des meilleurs clients enrichi sans PII")
+    void testGetTopCustomers_EnrichedWithoutPii() {
+        LocalDate from = LocalDate.of(2026, 10, 1);
+        LocalDate to = LocalDate.of(2026, 10, 27);
+
+        when(salesServiceClient.getTopCustomers(any(), any(), eq(10))).thenReturn(List.of(
+                new TopCustomerAggregateDto(1L, 10L, new BigDecimal("15000.00")),
+                new TopCustomerAggregateDto(2L, 5L, new BigDecimal("5000.00"))
+        ));
+
+        when(customerServiceClient.getCustomerSummary(1L))
+                .thenReturn(java.util.Optional.of(new CustomerSummaryDto(1L, "Jean", "Dupont", "Acme Industries")));
+        when(customerServiceClient.getCustomerSummary(2L))
+                .thenReturn(java.util.Optional.of(new CustomerSummaryDto(2L, "Alice", "Martin", null)));
+
+        TopCustomersResponse response = analyticsService.getTopCustomers(from, to, "UTC", 10);
+
+        assertThat(response).isNotNull();
+        assertThat(response.totalCount()).isEqualTo(2);
+        assertThat(response.topCustomers()).hasSize(2);
+
+        TopCustomerItem first = response.topCustomers().get(0);
+        assertThat(first.customerId()).isEqualTo(1L);
+        assertThat(first.customerName()).isEqualTo("Acme Industries");
+        assertThat(first.completedSalesCount()).isEqualTo(10L);
+        assertThat(first.totalSpent()).isEqualByComparingTo("15000.00");
+        assertThat(first.currency()).isEqualTo("EUR");
+
+        TopCustomerItem second = response.topCustomers().get(1);
+        assertThat(second.customerId()).isEqualTo(2L);
+        assertThat(second.customerName()).isEqualTo("Alice Martin");
+        assertThat(second.completedSalesCount()).isEqualTo(5L);
+        assertThat(second.totalSpent()).isEqualByComparingTo("5000.00");
     }
 }

@@ -25,17 +25,17 @@ export const Pagination: React.FC<PaginationProps> = ({
   const endItem = Math.min((currentPage + 1) * pageSize, totalElements);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-white border-t border-slate-200 rounded-b-xl text-xs text-slate-600">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-[#18181B] border-t border-[#27272A] rounded-b-xl text-xs text-[#A1A1AA]">
       <div>
-        Affichage de <span className="font-semibold text-slate-900">{startItem}</span> à{' '}
-        <span className="font-semibold text-slate-900">{endItem}</span> sur{' '}
-        <span className="font-semibold text-slate-900">{totalElements}</span> résultats
+        Affichage de <span className="font-semibold text-[#FAFAFA]">{startItem}</span> à{' '}
+        <span className="font-semibold text-[#FAFAFA]">{endItem}</span> sur{' '}
+        <span className="font-semibold text-[#FAFAFA]">{totalElements}</span> résultats
       </div>
 
       <div className="flex items-center gap-2">
         <span className="mr-2">
-          Page <span className="font-semibold text-slate-900">{currentPage + 1}</span> sur{' '}
-          <span className="font-semibold text-slate-900">{Math.max(1, totalPages)}</span>
+          Page <span className="font-semibold text-[#FAFAFA]">{currentPage + 1}</span> sur{' '}
+          <span className="font-semibold text-[#FAFAFA]">{Math.max(1, totalPages)}</span>
         </span>
 
         <Button

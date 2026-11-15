@@ -54,6 +54,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query(value = "SELECT si.product_id, si.product_name_snapshot, COALESCE(SUM(si.quantity), 0) as total_qty, COALESCE(SUM(si.line_total), 0) as total_rev FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE s.tenant_id = :tenantId AND s.status = 'COMPLETED' AND (CAST(:startDate AS TIMESTAMP) IS NULL OR s.created_at >= CAST(:startDate AS TIMESTAMP)) AND (CAST(:endDate AS TIMESTAMP) IS NULL OR s.created_at <= CAST(:endDate AS TIMESTAMP)) GROUP BY si.product_id, si.product_name_snapshot ORDER BY total_qty DESC LIMIT :limit", nativeQuery = true)
     List<Object[]> getTopProductsNative(@Param("tenantId") UUID tenantId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate, @Param("limit") int limit);
 
+    @Query(value = "SELECT s.customer_id, COUNT(*) as completed_sales_count, COALESCE(SUM(s.total_amount), 0) as total_spent FROM sales s WHERE s.tenant_id = :tenantId AND s.status = 'COMPLETED' AND (CAST(:startDate AS TIMESTAMP) IS NULL OR s.created_at >= CAST(:startDate AS TIMESTAMP)) AND (CAST(:endDate AS TIMESTAMP) IS NULL OR s.created_at <= CAST(:endDate AS TIMESTAMP)) GROUP BY s.customer_id ORDER BY total_spent DESC LIMIT :limit", nativeQuery = true)
+    List<Object[]> getTopCustomersNative(@Param("tenantId") UUID tenantId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate, @Param("limit") int limit);
+
     // Overloads / legacy fallbacks if needed for system jobs
     Page<Sale> findByStatus(SaleStatus status, Pageable pageable);
 }

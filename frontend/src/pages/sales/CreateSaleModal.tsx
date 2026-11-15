@@ -153,7 +153,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         {serverError && (
           <Alert variant="error" title="Échec de la réservation / création">
             <div className="flex items-start gap-2 mt-0.5">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <span>{serverError}</span>
             </div>
           </Alert>
@@ -166,15 +166,15 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         )}
 
         {/* Idempotency Key Display */}
-        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between text-xs">
+        <div className="p-3 bg-[#202024] rounded-xl border border-[#27272A] flex items-center justify-between text-xs">
           <div>
-            <span className="font-semibold text-slate-700">Clé d'idempotence / Réf. Vente : </span>
-            <span className="font-mono text-emerald-700 font-bold ml-1">{idempotencyKey}</span>
+            <span className="font-semibold text-[#A1A1AA]">Clé d'idempotence / Réf. Vente : </span>
+            <span className="font-mono text-[#FACC15] font-bold ml-1 tracking-wider">{idempotencyKey}</span>
           </div>
           <button
             type="button"
             onClick={() => setIdempotencyKey(generateSaleReference())}
-            className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-medium"
+            className="text-[#A1A1AA] hover:text-[#FAFAFA] flex items-center gap-1 font-medium transition-colors"
             title="Générer une nouvelle référence"
           >
             <RefreshCw className="w-3 h-3" />
@@ -202,7 +202,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         {/* Order Items */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+            <label className="text-xs font-bold uppercase tracking-wider text-[#A1A1AA]">
               Articles commandés ({items.length})
             </label>
             <Button
@@ -225,19 +225,19 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
               return (
                 <div
                   key={idx}
-                  className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-slate-50/50"
+                  className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 p-3 rounded-xl border border-[#27272A] bg-[#202024]/70"
                 >
                   <div className="flex-1">
                     <select
-                      className="block w-full rounded-md border border-slate-300 bg-white text-xs py-2 px-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="block w-full rounded-lg border border-[#27272A] bg-[#18181B] text-[#FAFAFA] text-xs py-2 px-2.5 focus:outline-none focus:border-[#FACC15] focus:ring-1 focus:ring-[#FACC15] transition-colors"
                       value={item.productId}
                       onChange={(e) => handleItemProductChange(idx, Number(e.target.value))}
                     >
-                      <option value={0}>
+                      <option value={0} className="bg-[#18181B] text-[#A1A1AA]">
                         {loadingProducts ? 'Chargement des produits...' : 'Sélectionnez un article...'}
                       </option>
                       {availableProducts.map((p) => (
-                        <option key={p.id} value={p.id} disabled={p.stockQuantity <= 0}>
+                        <option key={p.id} value={p.id} disabled={p.stockQuantity <= 0} className="bg-[#18181B] text-[#FAFAFA]">
                           {p.name} — {formatCurrency(p.price)} (Stock: {p.stockQuantity})
                         </option>
                       ))}
@@ -255,7 +255,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
                     />
                   </div>
 
-                  <div className="w-28 text-right font-bold text-xs text-slate-800">
+                  <div className="w-28 text-right font-mono font-bold text-xs text-[#FAFAFA]">
                     {formatCurrency(linePrice)}
                   </div>
 
@@ -265,7 +265,7 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
                     size="sm"
                     disabled={items.length <= 1}
                     onClick={() => handleRemoveItem(idx)}
-                    className="text-slate-400 hover:text-rose-600 self-center"
+                    className="text-[#A1A1AA] hover:text-red-400 self-center"
                     aria-label="Supprimer cette ligne"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -277,11 +277,11 @@ export const CreateSaleModal: React.FC<CreateSaleModalProps> = ({
         </div>
 
         {/* Total & Summary footer */}
-        <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+        <div className="pt-4 border-t border-[#27272A] flex items-center justify-between">
           <div>
-            <div className="text-xs text-slate-500">Estimation totale</div>
-            <div className="text-xl font-bold text-slate-900">{formatCurrency(computedTotal)}</div>
-            <div className="text-[10px] text-slate-400">Montant recalculé automatiquement par le serveur</div>
+            <div className="text-xs text-[#A1A1AA]">Estimation totale</div>
+            <div className="text-xl font-bold font-mono text-[#FACC15]">{formatCurrency(computedTotal)}</div>
+            <div className="text-[10px] text-[#71717A]">Montant recalculé automatiquement par le serveur</div>
           </div>
 
           <div className="flex items-center gap-3">
