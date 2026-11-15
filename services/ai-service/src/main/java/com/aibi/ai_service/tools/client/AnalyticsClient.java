@@ -84,4 +84,22 @@ public class AnalyticsClient {
             return "{\"error\":\"DOWNSTREAM_SERVICE_UNAVAILABLE\",\"message\":\"Impossible de vérifier les stocks faibles.\"}";
         }
     }
+
+    public String getTopCustomers(String from, String to, String timezone, int limit) {
+        try {
+            return analyticsRestClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/analytics/top-customers")
+                            .queryParamIfPresent("from", java.util.Optional.ofNullable(from))
+                            .queryParamIfPresent("to", java.util.Optional.ofNullable(to))
+                            .queryParamIfPresent("timezone", java.util.Optional.ofNullable(timezone))
+                            .queryParam("limit", limit)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+        } catch (Exception e) {
+            log.error("Erreur lors de l'appel à analytics-service /top-customers: {}", e.getMessage());
+            return "{\"error\":\"DOWNSTREAM_SERVICE_UNAVAILABLE\",\"message\":\"Impossible de récupérer les meilleurs clients.\"}";
+        }
+    }
 }

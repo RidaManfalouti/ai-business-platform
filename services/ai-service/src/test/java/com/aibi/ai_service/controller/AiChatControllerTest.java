@@ -76,16 +76,21 @@ class AiChatControllerTest {
     }
 
     private String createToken() {
+        return createTokenForRole("OWNER");
+    }
+
+    private String createTokenForRole(String role) {
         try {
             byte[] secretBytes = Base64.getDecoder().decode(jwtSecret);
             JWSSigner signer = new MACSigner(secretBytes);
 
             long now = System.currentTimeMillis();
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .subject("owner@company.local")
+                    .subject(role.toLowerCase() + "@company.local")
                     .claim("user_id", USER_ID)
                     .claim("tenant_id", TENANT_ID.toString())
-                    .claim("roles", List.of("ROLE_OWNER", "ROLE_USER"))
+                    .claim("tenant_role", role)
+                    .claim("roles", List.of("ROLE_" + role, "ROLE_USER"))
                     .issueTime(new Date(now))
                     .expirationTime(new Date(now + 3600000))
                     .build();
@@ -182,5 +187,19 @@ class AiChatControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("CRIT-03 : POST /api/ai/chat avec rôle SELLER -> getSalesSummary n'est pas exposé ni invoqué")
+    void testChatSeller_ToolFiltering() throws Exception {
+        ChatRequest request = new ChatRequest(null, "Donne-moi le chiffre d'affaires et les ventes");
+
+        mockMvc.perform(post("/api/ai/chat")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + createTokenForRole("SELLER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verifyNoInteractions(analyticsClient);
     }
 }

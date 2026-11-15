@@ -3,6 +3,7 @@ package com.aibi.sales_service.controller;
 import com.aibi.sales_service.dto.DailyTrendResponse;
 import com.aibi.sales_service.dto.SalesStatusCountResponse;
 import com.aibi.sales_service.dto.SalesSummaryAggregateResponse;
+import com.aibi.sales_service.dto.TopCustomerAggregateResponse;
 import com.aibi.sales_service.dto.TopProductAggregateResponse;
 import com.aibi.sales_service.model.SaleStatus;
 import com.aibi.sales_service.security.JwtRoleConverter;
@@ -107,5 +108,25 @@ class SalesAggregationControllerTest {
                 .andExpect(jsonPath("$[0].productName").value("Laptop Pro"))
                 .andExpect(jsonPath("$[0].totalQuantity").value(40))
                 .andExpect(jsonPath("$[0].totalRevenue").value(48000.00));
+    }
+
+    @Test
+    @DisplayName("GET /api/sales/aggregates/top-customers retourne les meilleurs clients par chiffre d'affaires")
+    void testGetTopCustomers() throws Exception {
+        when(salesService.getTopCustomers(any(), any(), eq(10)))
+                .thenReturn(List.of(
+                        new TopCustomerAggregateResponse(100L, 5L, new BigDecimal("12500.00")),
+                        new TopCustomerAggregateResponse(101L, 3L, new BigDecimal("4200.50"))
+                ));
+
+        mockMvc.perform(get("/api/sales/aggregates/top-customers?limit=10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].customerId").value(100))
+                .andExpect(jsonPath("$[0].completedSalesCount").value(5))
+                .andExpect(jsonPath("$[0].totalSpent").value(12500.00))
+                .andExpect(jsonPath("$[1].customerId").value(101))
+                .andExpect(jsonPath("$[1].completedSalesCount").value(3))
+                .andExpect(jsonPath("$[1].totalSpent").value(4200.50));
     }
 }

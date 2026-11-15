@@ -31,9 +31,13 @@ public class ProductionSecurityValidator {
     private String appEnv;
 
     private final Environment environment;
+    private final com.aibi.ai_service.provider.LlmProperties llmProperties;
 
-    public ProductionSecurityValidator(Environment environment) {
+    public ProductionSecurityValidator(
+            Environment environment,
+            com.aibi.ai_service.provider.LlmProperties llmProperties) {
         this.environment = environment;
+        this.llmProperties = llmProperties;
     }
 
     @PostConstruct
@@ -58,11 +62,59 @@ public class ProductionSecurityValidator {
             }
         }
 
+        validateLlmConfiguration(isProduction);
+
         if (isProduction) {
             log.info("Configuration de sécurité validée pour l'environnement PRODUCTION.");
         } else {
             log.info("Environnement DÉVELOPPEMENT détecté — vérifications allégées.");
         }
+    }
+
+    private void validateLlmConfiguration(boolean isProduction) {
+        String provider = llmProperties != null ? llmProperties.getProvider() : null;
+
+        if (isProduction) {
+            if (provider == null || provider.isBlank()) {
+                log.error("ERREUR CRITIQUE SÉCURITÉ : Aucun fournisseur LLM configuré en production (ai.provider)");
+                throw new IllegalStateException("Fournisseur LLM requis en production (ai.provider)");
+            }
+
+            if ("mock".equalsIgnoreCase(provider.trim())) {
+                log.error("ERREUR CRITIQUE SÉCURITÉ : Le fournisseur LLM 'mock' est formellement interdit en environnement de production !");
+                throw new IllegalStateException("Fournisseur LLM 'mock' non autorisé en production");
+            }
+
+            if ("gemini".equalsIgnoreCase(provider.trim())) {
+                String apiKey = llmProperties.getGemini().getApiKey();
+                if (apiKey == null || apiKey.isBlank() || isPlaceholderKey(apiKey)) {
+                    log.error("ERREUR CRITIQUE SÉCURITÉ : Clé d'API Google Gemini manquante ou invalide pour l'environnement de production !");
+                    throw new IllegalStateException("GEMINI_API_KEY requise et valide en production pour le fournisseur gemini");
+                }
+            } else if ("openai".equalsIgnoreCase(provider.trim())) {
+                String apiKey = llmProperties.getOpenai().getApiKey();
+                if (apiKey == null || apiKey.isBlank() || isPlaceholderKey(apiKey)) {
+                    log.error("ERREUR CRITIQUE SÉCURITÉ : Clé d'API OpenAI manquante ou invalide pour l'environnement de production !");
+                    throw new IllegalStateException("OPENAI_API_KEY requise et valide en production pour le fournisseur openai");
+                }
+            } else {
+                log.error("ERREUR CRITIQUE SÉCURITÉ : Fournisseur LLM non reconnu en production : {}", provider);
+                throw new IllegalStateException("Fournisseur LLM non reconnu en production: " + provider);
+            }
+        } else {
+            if ("mock".equalsIgnoreCase(provider)) {
+                log.info("Mode développement : Fournisseur LLM 'mock' actif.");
+            }
+        }
+    }
+
+    private boolean isPlaceholderKey(String key) {
+        String lower = key.toLowerCase();
+        return lower.contains("placeholder")
+                || lower.contains("change-in-production")
+                || lower.startsWith("test-")
+                || lower.equals("secret")
+                || key.length() < 10;
     }
 
     public boolean isProductionEnvironment() {

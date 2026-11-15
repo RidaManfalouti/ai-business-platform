@@ -1,9 +1,12 @@
 package com.aibi.ai_service.provider.dto;
 
-import java.util.List;
-
 public record LlmToolCall(
         String id,
         String name,
-        String argumentsJson
-) {}
+        String argumentsJson,
+        String thoughtSignature
+) {
+    public LlmToolCall(String id, String name, String argumentsJson) {
+        this(id, name, argumentsJson, null);
+    }
+}

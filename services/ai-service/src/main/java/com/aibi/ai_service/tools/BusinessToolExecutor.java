@@ -1,6 +1,8 @@
 package com.aibi.ai_service.tools;
 
 import com.aibi.ai_service.exception.InvalidToolArgumentException;
+import com.aibi.ai_service.exception.UnauthorizedAccessException;
+import com.aibi.ai_service.security.SecurityUtils;
 import com.aibi.ai_service.tools.client.AnalyticsClient;
 import com.aibi.ai_service.tools.client.CustomerClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -20,17 +22,33 @@ public class BusinessToolExecutor {
 
     private final AnalyticsClient analyticsClient;
     private final CustomerClient customerClient;
+    private final BusinessToolAuthorizationService authorizationService;
     private final ObjectMapper objectMapper;
 
-    public BusinessToolExecutor(AnalyticsClient analyticsClient, CustomerClient customerClient, ObjectMapper objectMapper) {
+    public BusinessToolExecutor(
+            AnalyticsClient analyticsClient,
+            CustomerClient customerClient,
+            BusinessToolAuthorizationService authorizationService,
+            ObjectMapper objectMapper) {
         this.analyticsClient = analyticsClient;
         this.customerClient = customerClient;
+        this.authorizationService = authorizationService;
         this.objectMapper = objectMapper;
     }
 
     public String executeTool(String toolName, String argumentsJson) {
+        String userRole = SecurityUtils.getCurrentTenantRole().orElse(null);
+        return executeTool(toolName, argumentsJson, userRole);
+    }
+
+    public String executeTool(String toolName, String argumentsJson, String userRole) {
         if (toolName == null || toolName.isBlank()) {
             throw new InvalidToolArgumentException("Nom d'outil vide ou manquant.");
+        }
+
+        if (!authorizationService.isToolAuthorized(toolName, userRole)) {
+            log.warn("Refus d'exécution d'outil : rôle [{}] non autorisé pour [{}]", userRole, toolName);
+            throw new UnauthorizedAccessException("Accès refusé : le rôle '" + userRole + "' n'est pas autorisé à exécuter l'outil '" + toolName + "'.");
         }
 
         JsonNode args;
@@ -85,8 +103,11 @@ public class BusinessToolExecutor {
     }
 
     private String handleGetTopCustomers(JsonNode args) {
+        String from = getOptionalDate(args, "from");
+        String to = getOptionalDate(args, "to");
+        String timezone = getOptionalString(args, "timezone");
         int limit = getBoundedInt(args, "limit", 10, 1, 25);
-        return customerClient.getCustomers(limit);
+        return analyticsClient.getTopCustomers(from, to, timezone, limit);
     }
 
     private String handleCompareRevenuePeriods(JsonNode args) {

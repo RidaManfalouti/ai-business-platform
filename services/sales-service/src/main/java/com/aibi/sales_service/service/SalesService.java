@@ -330,6 +330,21 @@ public class SalesService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public List<TopCustomerAggregateResponse> getTopCustomers(LocalDateTime startDate, LocalDateTime endDate, int limit) {
+        UUID tenantId = TenantContext.getRequiredTenantId();
+        int boundedLimit = Math.max(1, Math.min(limit, 100));
+        List<Object[]> rows = saleRepository.getTopCustomersNative(tenantId, startDate, endDate, boundedLimit);
+        List<TopCustomerAggregateResponse> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            Long customerId = ((Number) row[0]).longValue();
+            long count = ((Number) row[1]).longValue();
+            BigDecimal totalSpent = (BigDecimal) row[2];
+            result.add(new TopCustomerAggregateResponse(customerId, count, totalSpent != null ? totalSpent : BigDecimal.ZERO));
+        }
+        return result;
+    }
+
     private String generateUniqueReference() {
         String datePrefix = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         String uuidPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();

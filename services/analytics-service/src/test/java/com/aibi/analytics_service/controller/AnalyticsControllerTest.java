@@ -182,4 +182,29 @@ class AnalyticsControllerTest {
                 .andExpect(jsonPath("$.statusDistribution").exists())
                 .andExpect(jsonPath("$.lowStock").exists());
     }
+
+    @Test
+    @DisplayName("GET /api/analytics/top-customers retourne les meilleurs clients sans PII")
+    void testGetTopCustomers() throws Exception {
+        when(analyticsService.getTopCustomers(any(), any(), any(), eq(10)))
+                .thenReturn(new TopCustomersResponse(
+                        List.of(
+                                new TopCustomerItem(1L, "Société ABC", 15, new BigDecimal("12500.00"), "EUR"),
+                                new TopCustomerItem(2L, "Entreprise XYZ", 8, new BigDecimal("7400.00"), "EUR")
+                        ),
+                        2
+                ));
+
+        mockMvc.perform(get("/api/analytics/top-customers?limit=10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.topCustomers[0].customerId").value(1))
+                .andExpect(jsonPath("$.topCustomers[0].customerName").value("Société ABC"))
+                .andExpect(jsonPath("$.topCustomers[0].completedSalesCount").value(15))
+                .andExpect(jsonPath("$.topCustomers[0].totalSpent").value(12500.00))
+                .andExpect(jsonPath("$.topCustomers[0].currency").value("EUR"))
+                .andExpect(jsonPath("$.topCustomers[0].email").doesNotExist())
+                .andExpect(jsonPath("$.topCustomers[0].phone").doesNotExist());
+    }
 }

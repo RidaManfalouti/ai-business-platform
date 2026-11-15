@@ -54,4 +54,23 @@ public class CustomerServiceClient {
             );
         }
     }
+
+    public java.util.Optional<com.aibi.analytics_service.client.dto.CustomerSummaryDto> getCustomerSummary(Long customerId) {
+        if (customerId == null) {
+            return java.util.Optional.empty();
+        }
+        try {
+            com.aibi.analytics_service.client.dto.CustomerSummaryDto summary = restClient.get()
+                    .uri("/api/customers/{id}", customerId)
+                    .retrieve()
+                    .onStatus(status -> status.value() == 404, (req, res) -> {
+                        // Customer not found or deleted, safe to handle
+                    })
+                    .body(com.aibi.analytics_service.client.dto.CustomerSummaryDto.class);
+            return java.util.Optional.ofNullable(summary);
+        } catch (Exception ex) {
+            log.warn("Impossible de récupérer les détails non-PII du client {} : {}", customerId, ex.getMessage());
+            return java.util.Optional.empty();
+        }
+    }
 }
